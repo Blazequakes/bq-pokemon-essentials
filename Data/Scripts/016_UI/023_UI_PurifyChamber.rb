@@ -531,7 +531,7 @@ class PurifyChamberScreen
       end
     end
     if pbCheckPurify
-      @scene.pbDisplay(_INTL("There is a Pokémon that is ready to open its heart!\1"))
+      @scene.pbDisplay(_INTL("There is a Pokémon that is ready to open its heart!") + "\1")
       @scene.pbCloseSetDetail
       pbDoPurify
       return false
@@ -579,7 +579,7 @@ class PurifyChamberScreen
       pbStorePokemon(@chamber[set].shadow)
       @chamber.setShadow(set, nil) # Remove shadow Pokemon from set
       if (i + 1) != purifiables.length
-        @scene.pbDisplay(_INTL("There is another Pokémon that is ready to open its heart!"))
+        @scene.pbDisplay(_INTL("There is another Pokémon that is ready to open its heart!") + "\1")
         if !@scene.pbConfirm(_INTL("Would you like to switch sets?"))
           @scene.pbCloseSet
           break
@@ -648,9 +648,9 @@ class Window_PurifyChamberSets < Window_DrawableCommand
     textpos = []
     rect = drawCursor(index, rect)
     if index == @switching
-      textpos.push([(index + 1).to_s, rect.x, rect.y, false, Color.new(248, 0, 0), self.shadowColor])
+      textpos.push([(index + 1).to_s, rect.x, rect.y, :left, Color.new(248, 0, 0), self.shadowColor])
     else
-      textpos.push([(index + 1).to_s, rect.x, rect.y, false, self.baseColor, self.shadowColor])
+      textpos.push([(index + 1).to_s, rect.x, rect.y, :left, self.baseColor, self.shadowColor])
     end
     if @chamber.setCount(index) > 0
       pbDrawGauge(self.contents, Rect.new(rect.x + 16, rect.y + 6, 48, 8),
@@ -681,7 +681,7 @@ class DirectFlowDiagram
     @distance = 96
   end
 
-# 0=none, 1=weak, 2=strong
+  # 0=none, 1=weak, 2=strong
   def setFlowStrength(strength)
     @strength = strength
   end
@@ -755,7 +755,7 @@ class FlowDiagram
     @distance = 96
   end
 
-# 0=none, 1=weak, 2=strong
+  # 0=none, 1=weak, 2=strong
   def setFlowStrength(strength)
     @strength = strength
   end
@@ -942,8 +942,8 @@ class PurifyChamberSetView < Sprite
         type_string += GameData::Type.get(type).name
       end
       textpos.push([_INTL("{1}  Lv.{2}  {3}", pkmn.name, pkmn.level, type_string),
-                    2, 6, 0, Color.new(248, 248, 248), Color.new(128, 128, 128)])
-      textpos.push([_INTL("FLOW"), 2 + (@info.bitmap.width / 2), 30, 0,
+                    2, 6, :left, Color.new(248, 248, 248), Color.new(128, 128, 128)])
+      textpos.push([_INTL("FLOW"), 2 + (@info.bitmap.width / 2), 30, :left,
                     Color.new(248, 248, 248), Color.new(128, 128, 128)])
       # draw heart gauge
       pbDrawGauge(@info.bitmap, Rect.new(@info.bitmap.width * 3 / 4, 8, @info.bitmap.width * 1 / 4, 8),
@@ -953,8 +953,7 @@ class PurifyChamberSetView < Sprite
                   Color.new(0, 0, 248), @chamber.chamberFlow(@set), 7)
     end
     if @chamber.setCount(@set) > 0
-      textpos.push([_INTL("TEMPO"), 2, 30, 0,
-                    Color.new(248, 248, 248), Color.new(128, 128, 128)])
+      textpos.push([_INTL("TEMPO"), 2, 30, :left, Color.new(248, 248, 248), Color.new(128, 128, 128)])
       # draw tempo gauge
       pbDrawGauge(@info.bitmap, Rect.new(@info.bitmap.width * 1 / 4, 32, @info.bitmap.width * 1 / 4, 8),
                   Color.new(0, 0, 248), @chamber[@set].tempo, PurifyChamber.maximumTempo)

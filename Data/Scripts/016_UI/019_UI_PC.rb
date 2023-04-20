@@ -5,14 +5,14 @@ def pbPCItemStorage
   command = 0
   loop do
     command = pbShowCommandsWithHelp(nil,
-       [_INTL("Withdraw Item"),
-        _INTL("Deposit Item"),
-        _INTL("Toss Item"),
-        _INTL("Exit")],
-       [_INTL("Take out items from the PC."),
-        _INTL("Store items in the PC."),
-        _INTL("Throw away items stored in the PC."),
-        _INTL("Go back to the previous menu.")], -1, command)
+                                     [_INTL("Withdraw Item"),
+                                      _INTL("Deposit Item"),
+                                      _INTL("Toss Item"),
+                                      _INTL("Exit")],
+                                     [_INTL("Take out items from the PC."),
+                                      _INTL("Store items in the PC."),
+                                      _INTL("Throw away items stored in the PC."),
+                                      _INTL("Go back to the previous menu.")], -1, command)
     case command
     when 0   # Withdraw Item
       if !$PokemonGlobal.pcItemStorage
@@ -108,7 +108,7 @@ end
 #
 #===============================================================================
 def pbTrainerPC
-  pbMessage(_INTL("\\se[PC open]{1} booted up the PC.", $player.name))
+  pbMessage("\\se[PC open]" + _INTL("{1} booted up the PC.", $player.name))
   pbTrainerPCMenu
   pbSEPlay("PC close")
 end
@@ -132,7 +132,7 @@ end
 #
 #===============================================================================
 def pbPokeCenterPC
-  pbMessage(_INTL("\\se[PC open]{1} booted up the PC.", $player.name))
+  pbMessage("\\se[PC open]" + _INTL("{1} booted up the PC.", $player.name))
   # Get all commands
   command_list = []
   commands = []
@@ -166,18 +166,18 @@ MenuHandlers.add(:pc_menu, :pokemon_storage, {
   },
   "order"     => 10,
   "effect"    => proc { |menu|
-    pbMessage(_INTL("\\se[PC access]The Pokémon Storage System was opened."))
+    pbMessage("\\se[PC access]" + _INTL("The Pokémon Storage System was opened."))
     command = 0
     loop do
       command = pbShowCommandsWithHelp(nil,
-         [_INTL("Organize Boxes"),
-          _INTL("Withdraw Pokémon"),
-          _INTL("Deposit Pokémon"),
-          _INTL("See ya!")],
-         [_INTL("Organize the Pokémon in Boxes and in your party."),
-          _INTL("Move Pokémon stored in Boxes to your party."),
-          _INTL("Store Pokémon in your party in Boxes."),
-          _INTL("Return to the previous menu.")], -1, command)
+                                       [_INTL("Organize Boxes"),
+                                        _INTL("Withdraw Pokémon"),
+                                        _INTL("Deposit Pokémon"),
+                                        _INTL("See ya!")],
+                                       [_INTL("Organize the Pokémon in Boxes and in your party."),
+                                        _INTL("Move Pokémon stored in Boxes to your party."),
+                                        _INTL("Store Pokémon in your party in Boxes."),
+                                        _INTL("Return to the previous menu.")], -1, command)
       break if command < 0
       case command
       when 0   # Organize
@@ -222,7 +222,7 @@ MenuHandlers.add(:pc_menu, :player_pc, {
   "name"      => proc { next _INTL("{1}'s PC", $player.name) },
   "order"     => 20,
   "effect"    => proc { |menu|
-    pbMessage(_INTL("\\se[PC access]Accessed {1}'s PC.", $player.name))
+    pbMessage("\\se[PC access]" + _INTL("Accessed {1}'s PC.", $player.name))
     pbTrainerPCMenu
     next false
   }

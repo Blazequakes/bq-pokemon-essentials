@@ -200,15 +200,15 @@ class Window_PokemonMart < Window_DrawableCommand
     rect = drawCursor(index, rect)
     ypos = rect.y
     if index == count - 1
-      textpos.push([_INTL("CANCEL"), rect.x, ypos + 2, false, self.baseColor, self.shadowColor])
+      textpos.push([_INTL("CANCEL"), rect.x, ypos + 2, :left, self.baseColor, self.shadowColor])
     else
       item = @stock[index]
       itemname = @adapter.getDisplayName(item)
       qty = @adapter.getDisplayPrice(item)
       sizeQty = self.contents.text_size(qty).width
       xQty = rect.x + rect.width - sizeQty - 2 - 16
-      textpos.push([itemname, rect.x, ypos + 2, false, self.baseColor, self.shadowColor])
-      textpos.push([qty, xQty, ypos + 2, false, self.baseColor, self.shadowColor])
+      textpos.push([itemname, rect.x, ypos + 2, :left, self.baseColor, self.shadowColor])
+      textpos.push([qty, xQty, ypos + 2, :left, self.baseColor, self.shadowColor])
     end
     pbDrawTextPositions(self.contents, textpos)
   end
@@ -616,7 +616,7 @@ class PokemonMartScreen
       end
       if GameData::Item.get(item).is_important?
         next if !pbConfirm(_INTL("So you want the {1}?\nIt'll be ${2}. All right?",
-                            itemname, price.to_s_formatted))
+                                 itemname, price.to_s_formatted))
         quantity = 1
       else
         maxafford = (price <= 0) ? Settings::BAG_MAX_PER_SLOT : @adapter.getMoney / price

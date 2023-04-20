@@ -13,7 +13,7 @@ class Battle::Battler
     @fainted = true
     # Check for end of Neutralizing Gas/Unnerve
     pbAbilitiesOnNeutralizingGasEnding if hasActiveAbility?(:NEUTRALIZINGGAS, true)
-    pbItemsOnUnnerveEnding if hasActiveAbility?(:UNNERVE, true)
+    pbItemsOnUnnerveEnding if hasActiveAbility?([:UNNERVE, :ASONECHILLINGNEIGH, :ASONEGRIMNEIGH], true)
     # Check for end of primordial weather
     @battle.pbEndPrimordialWeather
   end
@@ -29,7 +29,7 @@ class Battle::Battler
       Battle::AbilityEffects.triggerOnBattlerFainting(b.ability, b, self, @battle)
     end
     pbAbilitiesOnNeutralizingGasEnding if hasActiveAbility?(:NEUTRALIZINGGAS, true)
-    pbItemsOnUnnerveEnding if hasActiveAbility?(:UNNERVE, true)
+    pbItemsOnUnnerveEnding if hasActiveAbility?([:UNNERVE, :ASONECHILLINGNEIGH, :ASONEGRIMNEIGH], true)
   end
 
   # Used for Emergency Exit/Wimp Out. Returns whether self has switched out.
@@ -162,7 +162,8 @@ class Battle::Battler
   def pbOnLosingAbility(oldAbil, suppressed = false)
     if oldAbil == :NEUTRALIZINGGAS && (suppressed || !@effects[PBEffects::GastroAcid])
       pbAbilitiesOnNeutralizingGasEnding
-    elsif oldAbil == :UNNERVE && (suppressed || !@effects[PBEffects::GastroAcid])
+    elsif [:UNNERVE, :ASONECHILLINGNEIGH, :ASONEGRIMNEIGH].include?(oldAbil) &&
+          (suppressed || !@effects[PBEffects::GastroAcid])
       pbItemsOnUnnerveEnding
     elsif oldAbil == :ILLUSION && @effects[PBEffects::Illusion]
       @effects[PBEffects::Illusion] = nil
@@ -200,7 +201,7 @@ class Battle::Battler
   # Held item consuming/removing
   #=============================================================================
   def canConsumeBerry?
-    return false if @battle.pbCheckOpposingAbility(:UNNERVE, @index)
+    return false if @battle.pbCheckOpposingAbility([:UNNERVE, :ASONECHILLINGNEIGH, :ASONEGRIMNEIGH], @index)
     return true
   end
 
@@ -281,7 +282,8 @@ class Battle::Battler
   # NOTE: A Pokémon using Bug Bite/Pluck, and a Pokémon having an item thrown at
   #       it via Fling, will gain the effect of the item even if the Pokémon is
   #       affected by item-negating effects.
-  # item_to_use is an item ID for Bug Bite/Pluck and Fling, and nil otherwise.
+  # item_to_use is an item ID for Stuff Cheeks, Teatime, Bug Bite/Pluck and
+  # Fling, and nil otherwise.
   # fling is for Fling only.
   def pbHeldItemTriggerCheck(item_to_use = nil, fling = false)
     return if fainted?
