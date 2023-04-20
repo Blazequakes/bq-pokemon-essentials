@@ -200,8 +200,8 @@ class TriadScene
     pbSetSystemFont(@sprites["overlay"].bitmap)
     pbDrawTextPositions(
       @sprites["overlay"].bitmap,
-      [[@battle.opponentName, 52, 10, 2, Color.new(248, 248, 248), Color.new(96, 96, 96)],
-       [@battle.playerName, Graphics.width - 52, 10, 2, Color.new(248, 248, 248), Color.new(96, 96, 96)]]
+      [[@battle.opponentName, 52, 10, :center, Color.new(248, 248, 248), Color.new(96, 96, 96)],
+       [@battle.playerName, Graphics.width - 52, 10, :center, Color.new(248, 248, 248), Color.new(96, 96, 96)]]
     )
     @sprites["score"] = Sprite.new(@viewport)
     @sprites["score"].bitmap = BitmapWrapper.new(Graphics.width, Graphics.height)
@@ -578,7 +578,7 @@ class TriadScene
     end
     pbDrawTextPositions(
       bitmap,
-      [[_INTL("{1}-{2}", oppscore, playerscore), Graphics.width / 2, 10, 2, Color.new(248, 248, 248), Color.new(96, 96, 96)]]
+      [[_INTL("{1}-{2}", oppscore, playerscore), Graphics.width / 2, 10, :center, Color.new(248, 248, 248), Color.new(96, 96, 96)]]
     )
   end
 
@@ -1126,7 +1126,7 @@ def pbBuyTriads
       $PokemonGlobal.triads.add(item, quantity)
       $player.money -= price
       goldwindow.text = _INTL("Money:\r\n{1}", pbGetGoldString)
-      pbMessage(_INTL("Here you are! Thank you!\\se[Mart buy item]"))
+      pbMessage(_INTL("Here you are! Thank you!") + "\\se[Mart buy item]")
     end
   end
   cmdwindow.dispose
@@ -1220,7 +1220,7 @@ def pbSellTriads
             $player.money += price
             goldwindow.text = _INTL("Money:\r\n{1}", pbGetGoldString)
             $PokemonGlobal.triads.remove(item, quantity)
-            pbMessage(_INTL("Turned over the {1} card and received ${2}.\\se[Mart buy item]", itemname, price.to_s_formatted))
+            pbMessage(_INTL("Turned over the {1} card and received ${2}.", itemname, price.to_s_formatted) + "\\se[Mart buy item]")
             commands = []
             $PokemonGlobal.triads.length.times do |i|
               item = $PokemonGlobal.triads[i]

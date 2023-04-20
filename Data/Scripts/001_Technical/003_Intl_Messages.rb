@@ -284,8 +284,8 @@ module Translator
       f.write(0xEF.chr)
       f.write(0xBB.chr)
       f.write(0xBF.chr)
-      f.write("# To localize this text for a particular language, please\r\n")
-      f.write("# translate every second line of this file.\r\n")
+      f.write("# To localize this text for a particular language, please" + "\r\n")
+      f.write("# translate every second line of this file." + "\r\n")
       f.write("\#-------------------------------\r\n") if with_line
     end
     # Extract the text
@@ -338,11 +338,11 @@ module Translator
     end
     msg_window.textspeed = MessageConfig.pbSettingToTextSpeed($PokemonSystem.textspeed)
     if core_text
-      pbMessageDisplay(msg_window, _INTL("All core text was extracted to files in the folder \"{1}\".\1", dir_name))
+      pbMessageDisplay(msg_window, _INTL("All core text was extracted to files in the folder \"{1}\".", dir_name) + "\1")
     else
-      pbMessageDisplay(msg_window, _INTL("All game text was extracted to files in the folder \"{1}\".\1", dir_name))
+      pbMessageDisplay(msg_window, _INTL("All game text was extracted to files in the folder \"{1}\".", dir_name) + "\1")
     end
-    pbMessageDisplay(msg_window, _INTL("To localize this text, translate every second line in those files.\1"))
+    pbMessageDisplay(msg_window, _INTL("To localize this text, translate every second line in those files.") + "\1")
     pbMessageDisplay(msg_window, _INTL("After translating, choose \"Compile Translated Text\" in the Debug menu."))
     pbDisposeMessageWindow(msg_window)
   end
@@ -571,15 +571,17 @@ class Translation
   def setMapMessagesAsHash(map_id, array)
     load_default_messages
     @default_game_messages[MessageTypes::EVENT_TEXTS] ||= []
-    @default_game_messages[MessageTypes::EVENT_TEXTS][map_id] = priv_add_to_hash(MessageTypes::EVENT_TEXTS,
-      array, nil, map_id)
+    @default_game_messages[MessageTypes::EVENT_TEXTS][map_id] = priv_add_to_hash(
+      MessageTypes::EVENT_TEXTS, array, nil, map_id
+    )
   end
 
   def addMapMessagesAsHash(map_id, array)
     load_default_messages
     @default_game_messages[MessageTypes::EVENT_TEXTS] ||= []
-    @default_game_messages[MessageTypes::EVENT_TEXTS][map_id] = priv_add_to_hash(MessageTypes::EVENT_TEXTS,
-      array, @default_game_messages[MessageTypes::EVENT_TEXTS][map_id], map_id)
+    @default_game_messages[MessageTypes::EVENT_TEXTS][map_id] = priv_add_to_hash(
+      MessageTypes::EVENT_TEXTS, array, @default_game_messages[MessageTypes::EVENT_TEXTS][map_id], map_id
+    )
   end
 
   def get(type, id)

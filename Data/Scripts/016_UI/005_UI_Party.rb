@@ -19,7 +19,7 @@ class PokemonPartyConfirmCancelSprite < Sprite
     @overlaysprite = BitmapSprite.new(@bgsprite.bitmap.width, @bgsprite.bitmap.height, viewport)
     @overlaysprite.z = self.z + 1
     pbSetSystemFont(@overlaysprite.bitmap)
-    textpos = [[text, 56, (narrowbox) ? 8 : 14, 2, Color.new(248, 248, 248), Color.new(40, 40, 40)]]
+    textpos = [[text, 56, (narrowbox) ? 8 : 14, :center, Color.new(248, 248, 248), Color.new(40, 40, 40)]]
     pbDrawTextPositions(@overlaysprite.bitmap, textpos)
     self.x = x
     self.y = y
@@ -373,7 +373,7 @@ class PokemonPartyPanel < Sprite
 
   def draw_name
     pbDrawTextPositions(@overlaysprite.bitmap,
-                        [[@pokemon.name, 96, 22, 0, TEXT_BASE_COLOR, TEXT_SHADOW_COLOR]])
+                        [[@pokemon.name, 96, 22, :left, TEXT_BASE_COLOR, TEXT_SHADOW_COLOR]])
   end
 
   def draw_level
@@ -384,7 +384,7 @@ class PokemonPartyPanel < Sprite
     # Level number
     pbSetSmallFont(@overlaysprite.bitmap)
     pbDrawTextPositions(@overlaysprite.bitmap,
-                        [[@pokemon.level.to_s, 42, 68, 0, TEXT_BASE_COLOR, TEXT_SHADOW_COLOR]])
+                        [[@pokemon.level.to_s, 42, 68, :left, TEXT_BASE_COLOR, TEXT_SHADOW_COLOR]])
     pbSetSystemFont(@overlaysprite.bitmap)
   end
 
@@ -394,7 +394,7 @@ class PokemonPartyPanel < Sprite
     base_color   = (@pokemon.male?) ? Color.new(0, 112, 248) : Color.new(232, 32, 16)
     shadow_color = (@pokemon.male?) ? Color.new(120, 184, 232) : Color.new(248, 168, 184)
     pbDrawTextPositions(@overlaysprite.bitmap,
-                        [[gender_text, 224, 22, 0, base_color, shadow_color]])
+                        [[gender_text, 224, 22, :left, base_color, shadow_color]])
   end
 
   def draw_hp
@@ -402,7 +402,7 @@ class PokemonPartyPanel < Sprite
     # HP numbers
     hp_text = sprintf("% 3d /% 3d", @pokemon.hp, @pokemon.totalhp)
     pbDrawTextPositions(@overlaysprite.bitmap,
-                        [[hp_text, 224, 66, 1, TEXT_BASE_COLOR, TEXT_SHADOW_COLOR]])
+                        [[hp_text, 224, 66, :right, TEXT_BASE_COLOR, TEXT_SHADOW_COLOR]])
     # HP bar
     if @pokemon.able?
       w = @pokemon.hp * HP_BAR_WIDTH / @pokemon.totalhp.to_f
@@ -440,7 +440,7 @@ class PokemonPartyPanel < Sprite
   def draw_annotation
     return if !@text || @text.length == 0
     pbDrawTextPositions(@overlaysprite.bitmap,
-                        [[@text, 96, 62, 0, TEXT_BASE_COLOR, TEXT_SHADOW_COLOR]])
+                        [[@text, 96, 62, :left, TEXT_BASE_COLOR, TEXT_SHADOW_COLOR]])
   end
 
   def refresh
@@ -1454,16 +1454,16 @@ MenuHandlers.add(:party_menu_item, :move, {
       newitem = newpkmn.item
       newitemname = newitem.portion_name
       if newitemname.starts_with_vowel?
-        screen.pbDisplay(_INTL("{1} is already holding an {2}.\1", newpkmn.name, newitemname))
+        screen.pbDisplay(_INTL("{1} is already holding an {2}.", newpkmn.name, newitemname) + "\1")
       else
-        screen.pbDisplay(_INTL("{1} is already holding a {2}.\1", newpkmn.name, newitemname))
+        screen.pbDisplay(_INTL("{1} is already holding a {2}.", newpkmn.name, newitemname) + "\1")
       end
       next if !screen.pbConfirm(_INTL("Would you like to switch the two items?"))
       newpkmn.item = item
       pkmn.item = newitem
       screen.scene.pbClearSwitching
       screen.pbRefresh
-      screen.pbDisplay(_INTL("{1} was given the {2} to hold.", newpkmn.name, portionitemname))
+      screen.pbDisplay(_INTL("{1} was given the {2} to hold.", newpkmn.name, portionitemname) + "\1")
       screen.pbDisplay(_INTL("{1} was given the {2} to hold.", pkmn.name, newitemname))
       moved = true
       break

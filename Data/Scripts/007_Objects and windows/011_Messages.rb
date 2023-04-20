@@ -442,8 +442,10 @@ def pbMessageDisplay(msgwindow, message, letterbyletter = true, commandProc = ni
   text.gsub!(/\\pog/i, "\\b") if $player&.female?
   text.gsub!(/\\pg/i,  "")
   text.gsub!(/\\pog/i, "")
-  text.gsub!(/\\b/i,   "<c3=3050C8,D0D0C8>")
-  text.gsub!(/\\r/i,   "<c3=E00808,D0D0C8>")
+  male_text_tag = shadowc3tag(MessageConfig::MALE_TEXT_MAIN_COLOR, MessageConfig::MALE_TEXT_SHADOW_COLOR)
+  female_text_tag = shadowc3tag(MessageConfig::FEMALE_TEXT_MAIN_COLOR, MessageConfig::FEMALE_TEXT_SHADOW_COLOR)
+  text.gsub!(/\\b/i,   male_text_tag)
+  text.gsub!(/\\r/i,   female_text_tag)
   text.gsub!(/\\[Ww]\[([^\]]*)\]/) do
     w = $1.to_s
     if w == ""
@@ -549,7 +551,7 @@ def pbMessageDisplay(msgwindow, message, letterbyletter = true, commandProc = ni
   elsif signWaitCount == 0 && letterbyletter
     pbPlayDecisionSE
   end
-  ########## Position message window  ##############
+  # Position message window
   pbRepositionMessageWindow(msgwindow, linecount)
   if facewindow
     pbPositionNearMsgWindow(facewindow, msgwindow, :left)
@@ -557,7 +559,7 @@ def pbMessageDisplay(msgwindow, message, letterbyletter = true, commandProc = ni
     facewindow.z        = msgwindow.z
   end
   atTop = (msgwindow.y == 0)
-  ########## Show text #############################
+  # Show text
   msgwindow.text = text
   Graphics.frame_reset if Graphics.frame_rate > 40
   loop do

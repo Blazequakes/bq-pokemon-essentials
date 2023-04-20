@@ -283,21 +283,21 @@ class HallOfFame_Scene
     hour = totalsec / 60 / 60
     min = totalsec / 60 % 60
     pubid = sprintf("%05d", $player.public_ID)
-    lefttext = _INTL("Name<r>{1}<br>", $player.name)
-    lefttext += _INTL("ID No.<r>{1}<br>", pubid)
+    lefttext = _INTL("Name<r>{1}", $player.name) + "<br>"
+    lefttext += _INTL("ID No.<r>{1}", pubid) + "<br>"
     if hour > 0
-      lefttext += _INTL("Time<r>{1}h {2}m<br>", hour, min)
+      lefttext += _INTL("Time<r>{1}h {2}m", hour, min) + "<br>"
     else
-      lefttext += _INTL("Time<r>{1}m<br>", min)
+      lefttext += _INTL("Time<r>{1}m", min) + "<br>"
     end
-    lefttext += _INTL("Pokédex<r>{1}/{2}<br>",
-                      $player.pokedex.owned_count, $player.pokedex.seen_count)
+    lefttext += _INTL("Pokédex<r>{1}/{2}",
+                      $player.pokedex.owned_count, $player.pokedex.seen_count) + "<br>"
     @sprites["messagebox"] = Window_AdvancedTextPokemon.new(lefttext)
     @sprites["messagebox"].viewport = @viewport
     @sprites["messagebox"].width = 192 if @sprites["messagebox"].width < 192
     @sprites["msgwindow"] = pbCreateMessageWindow(@viewport)
     pbMessageDisplay(@sprites["msgwindow"],
-                     _INTL("League champion!\nCongratulations!\\^"))
+                     _INTL("League champion!\nCongratulations!") + "\\^")
   end
 
   def writePokemonData(pokemon, hallNumber = -1)
@@ -319,16 +319,16 @@ class HallOfFame_Scene
       dexnumber = _ISPRINTF("No. {1:03d}", number)
     end
     textPositions = [
-      [dexnumber, 32, Graphics.height - 74, 0, BASECOLOR, SHADOWCOLOR],
-      [pokename, Graphics.width - 192, Graphics.height - 74, 2, BASECOLOR, SHADOWCOLOR],
+      [dexnumber, 32, Graphics.height - 74, :left, BASECOLOR, SHADOWCOLOR],
+      [pokename, Graphics.width - 192, Graphics.height - 74, :center, BASECOLOR, SHADOWCOLOR],
       [_INTL("Lv. {1}", pokemon.egg? ? "?" : pokemon.level),
-       64, Graphics.height - 42, 0, BASECOLOR, SHADOWCOLOR],
+       64, Graphics.height - 42, :left, BASECOLOR, SHADOWCOLOR],
       [_INTL("ID No. {1}", pokemon.egg? ? "?????" : idno),
-       Graphics.width - 192, Graphics.height - 42, 2, BASECOLOR, SHADOWCOLOR]
+       Graphics.width - 192, Graphics.height - 42, :center, BASECOLOR, SHADOWCOLOR]
     ]
     if hallNumber > -1
-      textPositions.push([_INTL("Hall of Fame No."), (Graphics.width / 2) - 104, 6, 0, BASECOLOR, SHADOWCOLOR])
-      textPositions.push([hallNumber.to_s, (Graphics.width / 2) + 104, 6, 1, BASECOLOR, SHADOWCOLOR])
+      textPositions.push([_INTL("Hall of Fame No."), (Graphics.width / 2) - 104, 6, :left, BASECOLOR, SHADOWCOLOR])
+      textPositions.push([hallNumber.to_s, (Graphics.width / 2) + 104, 6, :right, BASECOLOR, SHADOWCOLOR])
     end
     pbDrawTextPositions(overlay, textPositions)
   end
@@ -337,7 +337,7 @@ class HallOfFame_Scene
     overlay = @sprites["overlay"].bitmap
     overlay.clear
     pbDrawTextPositions(overlay, [[_INTL("Welcome to the Hall of Fame!"),
-                                   Graphics.width / 2, Graphics.height - 68, 2, BASECOLOR, SHADOWCOLOR]])
+                                   Graphics.width / 2, Graphics.height - 68, :center, BASECOLOR, SHADOWCOLOR]])
   end
 
   def pbAnimationLoop

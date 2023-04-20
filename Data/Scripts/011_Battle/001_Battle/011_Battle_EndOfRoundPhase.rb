@@ -27,13 +27,13 @@ class Battle
     weather_data = GameData::BattleWeather.try_get(@field.weather)
     pbCommonAnimation(weather_data.animation) if weather_data
     case @field.weather
-#    when :Sun         then pbDisplay(_INTL("The sunlight is strong."))
-#    when :Rain        then pbDisplay(_INTL("Rain continues to fall."))
+    when :Sun         then pbDisplay(_INTL("The sunlight is strong."))
+    when :Rain        then pbDisplay(_INTL("Rain continues to fall."))
     when :Sandstorm   then pbDisplay(_INTL("The sandstorm is raging."))
     when :Hail        then pbDisplay(_INTL("The hail is crashing down."))
-#    when :HarshSun    then pbDisplay(_INTL("The sunlight is extremely harsh."))
-#    when :HeavyRain   then pbDisplay(_INTL("It is raining heavily."))
-#    when :StrongWinds then pbDisplay(_INTL("The wind is strong."))
+    when :HarshSun    then pbDisplay(_INTL("The sunlight is extremely harsh."))
+    when :HeavyRain   then pbDisplay(_INTL("It is raining heavily."))
+    when :StrongWinds then pbDisplay(_INTL("The wind is strong."))
     when :ShadowSky   then pbDisplay(_INTL("The shadow sky continues."))
     end
     # Effects due to weather
@@ -134,6 +134,8 @@ class Battle
   #=============================================================================
   def pbEORSeaOfFireDamage(priority)
     2.times do |side|
+      next if sides[side].effects[PBEffects::SeaOfFire] == 0
+      sides[side].effects[PBEffects::SeaOfFire] -= 1
       next if sides[side].effects[PBEffects::SeaOfFire] == 0
       pbCommonAnimation("SeaOfFire") if side == 0
       pbCommonAnimation("SeaOfFireOpp") if side == 1
@@ -594,7 +596,7 @@ class Battle
   #=============================================================================
   def pbEndOfRoundPhase
     PBDebug.log("")
-    PBDebug.log("[End of round]")
+    PBDebug.log("[End of round #{@turnCount + 1}]")
     @endOfRound = true
     @scene.pbBeginEndOfRoundPhase
     pbCalculatePriority           # recalculate speeds
@@ -747,6 +749,7 @@ class Battle
       battler.lastHPLostFromFoe                    = 0
       battler.droppedBelowHalfHP                   = false
       battler.statsDropped                         = false
+      battler.tookMoveDamageThisRound              = false
       battler.tookDamageThisRound                  = false
       battler.tookPhysicalHit                      = false
       battler.statsRaisedThisRound                 = false
