@@ -2,180 +2,712 @@ class Battle::AI
   #=============================================================================
   # Decide whether the opponent should switch Pokémon
   #=============================================================================
-  def pbEnemyShouldWithdraw?(idxBattler)
-    return pbEnemyShouldWithdrawEx?(idxBattler, false)
-  end
-
-  def pbEnemyShouldWithdrawEx?(idxBattler, forceSwitch)
-    return false if @battle.wildBattle?
-    shouldSwitch = forceSwitch
-    batonPass = -1
-    moveType = nil
-    skill = @battle.pbGetOwnerFromBattlerIndex(idxBattler).skill_level || 0
-    battler = @battle.battlers[idxBattler]
-    # If Pokémon is within 6 levels of the foe, and foe's last move was
-    # super-effective and powerful
-    if !shouldSwitch && battler.turnCount > 0 && skill >= PBTrainerAI.highSkill
-      target = battler.pbDirectOpposing(true)
-      if !target.fainted? && target.lastMoveUsed &&
-         (target.level - battler.level).abs <= 6
-        moveData = GameData::Move.get(target.lastMoveUsed)
-        moveType = moveData.type
-        typeMod = pbCalcTypeMod(moveType, target, battler)
-        if Effectiveness.super_effective?(typeMod) && moveData.base_damage > 50
-          switchChance = (moveData.base_damage > 70) ? 30 : 20
-          shouldSwitch = (pbAIRandom(100) < switchChance)
-        end
-      end
-    end
-    # Pokémon can't do anything (must have been in battle for at least 5 rounds)
-    if !@battle.pbCanChooseAnyMove?(idxBattler) &&
-       battler.turnCount && battler.turnCount >= 5
-      shouldSwitch = true
-    end
-    # Pokémon is Perish Songed and has Baton Pass
-    if skill >= PBTrainerAI.highSkill && battler.effects[PBEffects::PerishSong] == 1
-      battler.eachMoveWithIndex do |m, i|
-        next if m.function != "SwitchOutUserPassOnEffects"   # Baton Pass
-        next if !@battle.pbCanChooseMove?(idxBattler, i, false)
-        batonPass = i
+  # Called by the AI's def pbDefaultChooseEnemyCommand, and by def pbChooseMove
+  # if the only moves known are bad ones (the latter forces a switch). Also
+  # aliased by the Battle Palace and Battle Arena.
+  def pbChooseToSwitchOut(force_switch = false)
+    return false if @user.wild?
+    return false if !@battle.pbCanSwitchOut?(@user.index)
+    # Don't switch if all foes are unable to do anything, e.g. resting after
+    # Hyper Beam, will Truant (i.e. free turn)
+    if @trainer.high_skill?
+      foe_can_act = false
+      each_foe_battler(@user.side) do |b, i|
+        next if !b.can_attack?
+        foe_can_act = true
         break
       end
+      return false if !foe_can_act
     end
-    # Pokémon will faint because of bad poisoning at the end of this round, but
-    # would survive at least one more round if it were regular poisoning instead
-    if battler.status == :POISON && battler.statusCount > 0 &&
-       skill >= PBTrainerAI.highSkill
-      toxicHP = battler.totalhp / 16
-      nextToxicHP = toxicHP * (battler.effects[PBEffects::Toxic] + 1)
-      if battler.hp <= nextToxicHP && battler.hp > toxicHP * 2 && pbAIRandom(100) < 80
-        shouldSwitch = true
+    # Various calculations to decide whether to switch
+    if force_switch
+      PBDebug.log_ai("#{@user.name} is being forced to switch out")
+    else
+      return false if !@trainer.has_skill_flag?("ConsiderSwitching")
+      reserves = get_non_active_party_pokemon(@user.index)
+      return false if reserves.empty?
+      should_switch = Battle::AI::Handlers.should_switch?(@user, reserves, self, @battle)
+      if should_switch && @trainer.medium_skill?
+        should_switch = false if Battle::AI::Handlers.should_not_switch?(@user, reserves, self, @battle)
       end
+      return false if !should_switch
     end
-    # Pokémon is Encored into an unfavourable move
-    if battler.effects[PBEffects::Encore] > 0 && skill >= PBTrainerAI.mediumSkill
-      idxEncoredMove = battler.pbEncoredMoveIndex
-      if idxEncoredMove >= 0
-        scoreSum   = 0
-        scoreCount = 0
-        battler.allOpposing.each do |b|
-          scoreSum += pbGetMoveScore(battler.moves[idxEncoredMove], battler, b, skill)
-          scoreCount += 1
-        end
-        if scoreCount > 0 && scoreSum / scoreCount <= 20 && pbAIRandom(100) < 80
-          shouldSwitch = true
-        end
-      end
+    # Want to switch; find the best replacement Pokémon
+    idxParty = choose_best_replacement_pokemon(@user.index, force_switch)
+    if idxParty < 0   # No good replacement Pokémon found
+      PBDebug.log("   => no good replacement Pokémon, will not switch after all")
+      return false
     end
-    # If there is a single foe and it is resting after Hyper Beam or is
-    # Truanting (i.e. free turn)
-    if @battle.pbSideSize(battler.index + 1) == 1 &&
-       !battler.pbDirectOpposing.fainted? && skill >= PBTrainerAI.highSkill
-      opp = battler.pbDirectOpposing
-      if (opp.effects[PBEffects::HyperBeam] > 0 ||
-         (opp.hasActiveAbility?(:TRUANT) && opp.effects[PBEffects::Truant])) && pbAIRandom(100) < 80
-        shouldSwitch = false
-      end
+    # Prefer using Baton Pass instead of switching
+    baton_pass = -1
+    @user.battler.eachMoveWithIndex do |m, i|
+      next if m.function != "SwitchOutUserPassOnEffects"   # Baton Pass
+      next if !@battle.pbCanChooseMove?(@user.index, i, false)
+      baton_pass = i
+      break
     end
-    # Sudden Death rule - I'm not sure what this means
-    if @battle.rules["suddendeath"] && battler.turnCount > 0
-      if battler.hp <= battler.totalhp / 4 && pbAIRandom(100) < 30
-        shouldSwitch = true
-      elsif battler.hp <= battler.totalhp / 2 && pbAIRandom(100) < 80
-        shouldSwitch = true
-      end
-    end
-    # Pokémon is about to faint because of Perish Song
-    if battler.effects[PBEffects::PerishSong] == 1
-      shouldSwitch = true
-    end
-    if shouldSwitch
-      list = []
-      idxPartyStart, idxPartyEnd = @battle.pbTeamIndexRangeFromBattlerIndex(idxBattler)
-      @battle.pbParty(idxBattler).each_with_index do |pkmn, i|
-        next if i == idxPartyEnd - 1   # Don't choose to switch in ace
-        next if !@battle.pbCanSwitch?(idxBattler, i)
-        # If perish count is 1, it may be worth it to switch
-        # even with Spikes, since Perish Song's effect will end
-        if battler.effects[PBEffects::PerishSong] != 1
-          # Will contain effects that recommend against switching
-          spikes = battler.pbOwnSide.effects[PBEffects::Spikes]
-          # Don't switch to this if too little HP
-          if spikes > 0
-            spikesDmg = [8, 6, 4][spikes - 1]
-            next if pkmn.hp <= pkmn.totalhp / spikesDmg &&
-                    !pkmn.hasType?(:FLYING) && !pkmn.hasActiveAbility?(:LEVITATE)
-          end
-        end
-        # moveType is the type of the target's last used move
-        if moveType && Effectiveness.ineffective?(pbCalcTypeMod(moveType, battler, battler))
-          weight = 65
-          typeMod = pbCalcTypeModPokemon(pkmn, battler.pbDirectOpposing(true))
-          if Effectiveness.super_effective?(typeMod)
-            # Greater weight if new Pokemon's type is effective against target
-            weight = 85
-          end
-          list.unshift(i) if pbAIRandom(100) < weight   # Put this Pokemon first
-        elsif moveType && Effectiveness.resistant?(pbCalcTypeMod(moveType, battler, battler))
-          weight = 40
-          typeMod = pbCalcTypeModPokemon(pkmn, battler.pbDirectOpposing(true))
-          if Effectiveness.super_effective?(typeMod)
-            # Greater weight if new Pokemon's type is effective against target
-            weight = 60
-          end
-          list.unshift(i) if pbAIRandom(100) < weight   # Put this Pokemon first
-        else
-          list.push(i)   # put this Pokemon last
-        end
-      end
-      if list.length > 0
-        if batonPass >= 0 && @battle.pbRegisterMove(idxBattler, batonPass, false)
-          PBDebug.log("[AI] #{battler.pbThis} (#{idxBattler}) will use Baton Pass to avoid Perish Song")
-          return true
-        end
-        if @battle.pbRegisterSwitch(idxBattler, list[0])
-          PBDebug.log("[AI] #{battler.pbThis} (#{idxBattler}) will switch with " +
-                      @battle.pbParty(idxBattler)[list[0]].name)
-          return true
-        end
-      end
+    if baton_pass >= 0 && @battle.pbRegisterMove(@user.index, baton_pass, false)
+      PBDebug.log("   => will use Baton Pass to switch out")
+      return true
+    elsif @battle.pbRegisterSwitch(@user.index, idxParty)
+      PBDebug.log("   => will switch with #{@battle.pbParty(@user.index)[idxParty].name}")
+      return true
     end
     return false
   end
 
-  #=============================================================================
-  # Choose a replacement Pokémon
-  #=============================================================================
-  def pbDefaultChooseNewEnemy(idxBattler, party)
-    enemies = []
-    idxPartyStart, idxPartyEnd = @battle.pbTeamIndexRangeFromBattlerIndex(idxBattler)
-    party.each_with_index do |_p, i|
-      next if i == idxPartyEnd - 1 && enemies.length > 0   # Ignore ace if possible
-      enemies.push(i) if @battle.pbCanSwitchLax?(idxBattler, i)
+  def get_non_active_party_pokemon(idxBattler)
+    ret = []
+    @battle.pbParty(idxBattler).each_with_index do |pkmn, i|
+      ret.push(pkmn) if @battle.pbCanSwitchIn?(idxBattler, i)
     end
-    return -1 if enemies.length == 0
-    return pbChooseBestNewEnemy(idxBattler, party, enemies)
+    return ret
   end
 
-  def pbChooseBestNewEnemy(idxBattler, party, enemies)
-    return -1 if !enemies || enemies.length == 0
-    best    = -1
-    bestSum = 0
-    enemies.each do |i|
-      pkmn = party[i]
-      sum  = 0
-      pkmn.moves.each do |m|
-        next if m.base_damage == 0
-        @battle.battlers[idxBattler].allOpposing.each do |b|
-          bTypes = b.pbTypes(true)
-          sum += Effectiveness.calculate(m.type, bTypes[0], bTypes[1], bTypes[2])
+  #-----------------------------------------------------------------------------
+
+  # TODO: Need a way to allow a ShouldSwitch handler to recommend a replacement.
+  def choose_best_replacement_pokemon(idxBattler, mandatory = false)
+    # Get all possible replacement Pokémon
+    party = @battle.pbParty(idxBattler)
+    idxPartyStart, idxPartyEnd = @battle.pbTeamIndexRangeFromBattlerIndex(idxBattler)
+    reserves = []
+    party.each_with_index do |_pkmn, i|
+      next if !@battle.pbCanSwitchIn?(idxBattler, i)
+      if !mandatory   # Not mandatory means choosing an action for the round
+        ally_will_switch_with_i = false
+        @battle.allSameSideBattlers(idxBattler).each do |b|
+          next if @battle.choices[b.index][0] != :SwitchOut || @battle.choices[b.index][1] != i
+          ally_will_switch_with_i = true
+          break
         end
+        next if ally_will_switch_with_i
       end
-      if best == -1 || sum > bestSum
-        best = i
-        bestSum = sum
+      # Ignore ace if possible
+      if @trainer.has_skill_flag?("ReserveLastPokemon") && i == idxPartyEnd - 1
+        next if !mandatory || reserves.length > 0
+      end
+      reserves.push([i, 100])
+      break if @trainer.has_skill_flag?("UsePokemonInOrder") && reserves.length > 0
+    end
+    return -1 if reserves.length == 0
+    # Rate each possible replacement Pokémon
+    reserves.each_with_index do |reserve, i|
+      reserves[i][1] = rate_replacement_pokemon(idxBattler, party[reserve[0]], reserve[1])
+    end
+    reserves.sort! { |a, b| b[1] <=> a[1] }   # Sort from highest to lowest rated
+    # Don't bother choosing to switch if all replacements are poorly rated
+    if @trainer.high_skill? && !mandatory
+      # TODO: Should the current battler be rated as well, to provide a
+      #       threshold instead of using a threshold of 100?
+      return -1 if reserves[0][1] < 100   # Best replacement rated at <100, don't switch
+    end
+    # Return the party index of the best rated replacement Pokémon
+    return reserves[0][0]
+  end
+
+  def rate_replacement_pokemon(idxBattler, pkmn, score)
+    pkmn_types = pkmn.types
+    entry_hazard_damage = calculate_entry_hazard_damage(pkmn, idxBattler & 1)
+    if entry_hazard_damage >= pkmn.hp
+      score -= 50   # pkmn will just faint
+    elsif entry_hazard_damage > 0
+      score -= 50 * entry_hazard_damage / pkmn.hp
+    end
+    # TODO: Toxic Spikes.
+    # TODO: Sticky Web.
+    # Predict effectiveness of foe's last used move against pkmn
+    each_foe_battler(@user.side) do |b, i|
+      next if !b.battler.lastMoveUsed
+      move_data = GameData::Move.get(b.battler.lastMoveUsed)
+      next if move_data.status?
+      move_type = move_data.type
+      eff = Effectiveness.calculate(move_type, *pkmn_types)
+      score -= move_data.power * eff / 5
+    end
+    # Add power * effectiveness / 10 of all pkmn's moves to score
+    pkmn.moves.each do |m|
+      next if m.power == 0 || (m.pp == 0 && m.total_pp > 0)
+      @battle.battlers[idxBattler].allOpposing.each do |b|
+        bTypes = b.pbTypes(true)
+        # TODO: Consider Wonder Guard, Volt Absorb et al. Consider pkmn's
+        #       ability if it changes the user's types or powers up their moves?
+        score += m.power * Effectiveness.calculate(m.type, *bTypes) / 10
       end
     end
-    return best
+    # Prefer if user is about to faint from Perish Song
+    score += 20 if @user.effects[PBEffects::PerishSong] == 1
+    # TODO: Prefer if pkmn has lower HP and its position will be healed by Wish.
+    return score
+  end
+
+  def calculate_entry_hazard_damage(pkmn, side)
+    return 0 if pkmn.hasAbility?(:MAGICGUARD) || pkmn.hasItem?(:HEAVYDUTYBOOTS)
+    ret = 0
+    # Stealth Rock
+    if @battle.sides[side].effects[PBEffects::StealthRock] && GameData::Type.exists?(:ROCK)
+      eff = Effectiveness.calculate(:ROCK, *pkmn_types)
+      ret += pkmn.totalhp * eff / 8 if !Effectiveness.ineffective?(eff)
+    end
+    # Spikes
+    if @battle.sides[side].effects[PBEffects::Spikes] > 0
+      if @battle.field.effects[PBEffects::Gravity] > 0 || pkmn.hasItem?(:IRONBALL) ||
+         !(pkmn.hasType?(:FLYING) || pkmn.hasItem?(:LEVITATE) || pkmn.hasItem?(:AIRBALLOON))
+        spikes_div = [8, 6, 4][@battle.sides[side].effects[PBEffects::Spikes] - 1]
+        ret += pkmn.totalhp / spikes_div
+      end
+    end
+    return ret
   end
 end
+
+#===============================================================================
+# Pokémon is about to faint because of Perish Song.
+# TODO: Also switch to remove other negative effects like Disable, Yawn.
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:perish_song,
+  proc { |battler, reserves, ai, battle|
+    if battler.effects[PBEffects::PerishSong] == 1
+      PBDebug.log_ai("#{battler.name} wants to switch because it is about to faint from Perish Song")
+      next true
+    end
+    next false
+  }
+)
+
+#===============================================================================
+# Pokémon will take a significant amount of damage at the end of this round, or
+# it has an effect that causes it damage at the end of this round which it can
+# remove by switching.
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:significant_eor_damage,
+  proc { |battler, reserves, ai, battle|
+    eor_damage = battler.rough_end_of_round_damage
+    # Switch if battler will take significant EOR damage
+    if eor_damage >= battler.hp / 2 || eor_damage >= battler.totalhp / 4
+      PBDebug.log_ai("#{battler.name} wants to switch because it will take a lot of EOR damage")
+      next true
+    end
+    # Switch to remove certain effects that cause the battler EOR damage
+    if ai.trainer.high_skill? && eor_damage > 0
+      if battler.effects[PBEffects::LeechSeed] >= 0 && ai.pbAIRandom(100) < 50
+        PBDebug.log_ai("#{battler.name} wants to switch to get rid of its Leech Seed")
+        next true
+      end
+      if battler.effects[PBEffects::Nightmare]
+        PBDebug.log_ai("#{battler.name} wants to switch to get rid of its Nightmare")
+        next true
+      end
+      if battler.effects[PBEffects::Curse]
+        PBDebug.log_ai("#{battler.name} wants to switch to get rid of its Curse")
+        next true
+      end
+      if battler.status == :POISON && battler.statusCount > 0 && !battler.has_active_ability?(:POISONHEAL)
+        poison_damage = battler.totalhp / 8
+        next_toxic_damage = battler.totalhp * (battler.effects[PBEffects::Toxic] + 1) / 16
+        if (battler.hp <= next_toxic_damage && battler.hp > poison_damage) ||
+           next_toxic_damage > poison_damage * 2
+          PBDebug.log_ai("#{battler.name} wants to switch to reduce toxic to regular poisoning")
+          next true
+        end
+      end
+    end
+    next false
+  }
+)
+
+#===============================================================================
+# Pokémon can cure its status problem or heal some HP with its ability by
+# switching out. Covers all abilities with an OnSwitchOut AbilityEffects
+# handler.
+# TODO: Add randomness?
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:cure_status_problem_by_switching_out,
+  proc { |battler, reserves, ai, battle|
+    next false if !battler.ability_active?
+    # Don't try to cure a status problem/heal a bit of HP if entry hazards will
+    # KO the battler if it switches back in
+    entry_hazard_damage = ai.calculate_entry_hazard_damage(battler.pkmn, battler.side)
+    next false if entry_hazard_damage >= battler.hp
+    # Check specific abilities
+    single_status_cure = {
+      :IMMUNITY    => :POISON,
+      :INSOMNIA    => :SLEEP,
+      :LIMBER      => :PARALYSIS,
+      :MAGMAARMOR  => :FROZEN,
+      :VITALSPIRIT => :SLEEP,
+      :WATERBUBBLE => :BURN,
+      :WATERVEIL   => :BURN
+    }[battler.ability_id]
+    if battler.ability == :NATURALCURE || (single_status_cure && single_status_cure == battler.status)
+      # Cures status problem
+      next false if battler.wants_status_problem?(battler.status)
+      next false if battler.status == :SLEEP && battler.statusCount == 1   # Will wake up this round anyway
+      next false if entry_hazard_damage >= battler.totalhp / 4
+      # Don't bother curing a poisoning if Toxic Spikes will just re-poison the
+      # battler when it switches back in
+      if battler.status == :POISON && reserves.none? { |pkmn| pkmn.hasType?(:POISON) }
+        next false if battle.field.effects[PBEffectS::ToxicSpikes] == 2
+        next false if battle.field.effects[PBEffectS::ToxicSpikes] == 1 && battler.statusCount == 0
+      end
+      # Not worth curing status problems that still allow actions if at high HP
+      next false if battler.hp >= battler.totalhp / 2 && ![:SLEEP, :FROZEN].include?(battler.status)
+      PBDebug.log_ai("#{battler.name} wants to switch to cure its status problem with #{battler.ability.name}")
+      next true
+    elsif battler.ability == :REGENERATOR
+      # Heals 33% HP
+      next false if entry_hazard_damage >= battler.totalhp / 3
+      # Not worth healing HP if already at high HP
+      next false if battler.hp >= battler.totalhp / 2
+      # TODO: Don't bother if user can do decent damage.
+      if ai.pbAIRandom(100) < 50
+        PBDebug.log_ai("#{battler.name} wants to switch to heal with #{battler.ability.name}")
+        next true
+      end
+    end
+    next false
+  }
+)
+
+#===============================================================================
+# Pokémon's position is about to be healed by Wish, and a reserve can benefit
+# more from that healing than the Pokémon can.
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:wish_healing,
+  proc { |battler, reserves, ai, battle|
+    position = battle.positions[battler.index]
+    next false if position.effects[PBEffects::Wish] == 0
+    amt = position.effects[PBEffects::WishAmount]
+    next false if battler.totalhp - battler.hp >= amt * 2 / 3
+    reserve_wants_healing_more = false
+    reserves.each do |pkmn|
+      entry_hazard_damage = calculate_entry_hazard_damage(pkmn, battler.index & 1)
+      next if entry_hazard_damage >= pkmn.hp
+      reserve_wants_healing_more = (pkmn.totalhp - pkmn.hp - entry_hazard_damage >= amt * 2 / 3)
+      break if reserve_wants_healing_more
+    end
+    if reserve_wants_healing_more
+      PBDebug.log_ai("#{battler.name} wants to switch because Wish can heal a reserve more")
+      next true
+    end
+    next false
+  }
+)
+
+#===============================================================================
+# Pokémon is yawning and can't do anything while asleep.
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:yawning,
+  proc { |battler, reserves, ai, battle|
+    # Yawning and can fall asleep because of it
+    next false if battler.effects[PBEffects::Yawn] == 0 || !battler.battler.pbCanSleepYawn?
+    # Doesn't want to be asleep (includes checking for moves usable while asleep)
+    next false if battler.wants_status_problem?(:SLEEP)
+    # Can't cure itself of sleep
+    if battler.ability_active?
+      next false if [:INSOMNIA, :NATURALCURE, :REGENERATOR, :SHEDSKIN].include?(battler.ability_id)
+      next false if battler.ability_id == :HYDRATION && [:Rain, :HeavyRain].include?(battler.battler.effectiveWeather)
+    end
+    next false if battler.has_active_item?([:CHESTOBERRY, :LUMBERRY]) && battler.battler.canConsumeBerry?
+    # Ally can't cure sleep
+    ally_can_heal = false
+    ai.each_ally(battler.index) do |b, i|
+      ally_can_heal = b.has_active_ability?(:HEALER)
+      break if ally_can_heal
+    end
+    next false if ally_can_heal
+    # Doesn't benefit from being asleep/isn't less affected by sleep
+    next false if battler.has_active_ability?([:EARLYBIRD, :MARVELSCALE])
+    # Not trapping another battler in battle
+    if ai.trainer.high_skill?
+      next false if ai.battlers.any? do |b|
+        b.effects[PBEffects::JawLock] == battler.index ||
+        b.effects[PBEffects::MeanLook] == battler.index ||
+        b.effects[PBEffects::Octolock] == battler.index ||
+        b.effects[PBEffects::TrappingUser] == battler.index
+      end
+      trapping = false
+      ai.each_foe_battler(battler.side) do |b, i|
+        next if b.ability_active? && Battle::AbilityEffects.triggerCertainSwitching(b.ability, b, battle)
+        next if b.item_active? && Battle::ItemEffects.triggerCertainSwitching(b.item, b, battle)
+        next if Settings::MORE_TYPE_EFFECTS && b.has_type?(:GHOST)
+        next if b.trappedInBattle?   # Relevant trapping effects are checked above
+        if battler.ability_active?
+          trapping = Battle::AbilityEffects.triggerTrappingByTarget(battler.ability, b, battler.battler, battle)
+          break if trapping
+        end
+        if battler.item_active?
+          trapping = Battle::ItemEffects.triggerTrappingByTarget(battler.item, b, battler.battler, battle)
+          break if trapping
+        end
+      end
+      next false if trapping
+    end
+    # Doesn't have sufficiently raised stats that would be lost by switching
+    next false if battler.stages.any? { |val| val >= 2 }
+    PBDebug.log_ai("#{battler.name} wants to switch because it is yawning and can't do anything while asleep")
+    next true
+  }
+)
+
+#===============================================================================
+# Pokémon is asleep, won't wake up soon and can't do anything while asleep.
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:asleep,
+  proc { |battler, reserves, ai, battle|
+    # Asleep and won't wake up this round or next round
+    next false if battler.status != :SLEEP || battler.statusCount <= 2
+    # Doesn't want to be asleep (includes checking for moves usable while asleep)
+    next false if battler.wants_status_problem?(:SLEEP)
+    # Doesn't benefit from being asleep
+    next false if battler.has_active_ability?(:MARVELSCALE)
+    # Doesn't know Rest (if it does, sleep is expected, so don't apply this check)
+    next false if battler.check_for_move { |m| m.function == "HealUserFullyAndFallAsleep" }
+    # Not trapping another battler in battle
+    if ai.trainer.high_skill?
+      next false if ai.battlers.any? do |b|
+        b.effects[PBEffects::JawLock] == battler.index ||
+        b.effects[PBEffects::MeanLook] == battler.index ||
+        b.effects[PBEffects::Octolock] == battler.index ||
+        b.effects[PBEffects::TrappingUser] == battler.index
+      end
+      trapping = false
+      ai.each_foe_battler(battler.side) do |b, i|
+        next if b.ability_active? && Battle::AbilityEffects.triggerCertainSwitching(b.ability, b, battle)
+        next if b.item_active? && Battle::ItemEffects.triggerCertainSwitching(b.item, b, battle)
+        next if Settings::MORE_TYPE_EFFECTS && b.has_type?(:GHOST)
+        next if b.trappedInBattle?   # Relevant trapping effects are checked above
+        if battler.ability_active?
+          trapping = Battle::AbilityEffects.triggerTrappingByTarget(battler.ability, b, battler.battler, battle)
+          break if trapping
+        end
+        if battler.item_active?
+          trapping = Battle::ItemEffects.triggerTrappingByTarget(battler.item, b, battler.battler, battle)
+          break if trapping
+        end
+      end
+      next false if trapping
+    end
+    # Doesn't have sufficiently raised stats that would be lost by switching
+    next false if battler.stages.any? { |val| val >= 2 }
+    # 50% chance to not bother
+    next false if ai.pbAIRandom(100) < 50
+    PBDebug.log_ai("#{battler.name} wants to switch because it is asleep and can't do anything")
+    next true
+  }
+)
+
+#===============================================================================
+# Pokémon can't use any moves and isn't Destiny Bonding/Grudging/hiding behind a
+# Substitute.
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:battler_is_useless,
+  proc { |battler, reserves, ai, battle|
+    next false if !ai.trainer.medium_skill?
+    next false if battler.turnCount < 2   # Just switched in, give it a chance
+    next false if battle.pbCanChooseAnyMove?(battler.index)
+    next false if battler.effects[PBEffects::DestinyBond] || battler.effects[PBEffects::Grudge]
+    if battler.effects[PBEffects::Substitute]
+      hidden_behind_substitute = true
+      ai.each_foe_battler(battler.side) do |b, i|
+        next if !b.check_for_move { |m| m.ignoresSubstitute?(b.battler) }
+        hidden_behind_substitute = false
+        break
+      end
+      next false if hidden_behind_substitute
+    end
+    PBDebug.log_ai("#{battler.name} wants to switch because it can't do anything")
+    next true
+  }
+)
+
+#===============================================================================
+# Pokémon can't do anything to a Wonder Guard foe.
+# TODO: Check other abilities that provide immunities?
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:foe_has_wonder_guard,
+  proc { |battler, reserves, ai, battle|
+    next false if battler.battler.hasMoldBreaker?
+    non_wonder_guard_foe_exists = false
+    has_super_effective_move = false
+    foe_types = b.pbTypes(true)
+    next false if foe_types.length == 0
+    ai.each_foe_battler(battler.side) do |b, i|
+      if !b.has_active_ability?(:WONDERGUARD)
+        non_wonder_guard_foe_exists = true
+        break
+      end
+      if ai.trainer.high_skill? && b.rough_end_of_round_damage > 0
+        non_wonder_guard_foe_exists = true   # Wonder Guard is being overcome already
+        break
+      end
+      # Check for super-effective damaging moves
+      battler.battler.eachMove do |move|
+        next if move.statusMove?
+        if ["IgnoreTargetAbility",
+            "CategoryDependsOnHigherDamageIgnoreTargetAbility"].include?(move.function)
+          has_super_effective_move = true
+          break
+        end
+        eff = Effectiveness.calculate(move.pbCalcType(battler.battler), *foe_types)
+        if Effectiveness.super_effective?(eff)
+          has_super_effective_move = true
+          break
+        end
+      end
+      # TODO: Check if battler has other useful status moves. CFRU considers
+      #       these (and makes sure they're usable; also ensure they're not
+      #       stopped by a substitute):
+      #       - Inflict sleep/poison/burn/paralysis (not freeze)
+      #       - Inflict confusion (inc. Swagger/Flatter)
+      #       - Start damaging weather (sandstorm/hail)
+      #       - Trick (to give foe an item with EOR damage/status infliction)
+      #       - Other EOR damage moves (Leech Seed, Nightmare, Curse)
+      #       - Perish Song
+      #       - Add third type to target (Trick-or-Treat, Forest's Curse)
+      #       - Worry Seed, Gastro Acid, Entrainment, Simple Beam, Core Enforcer
+      #       - Roar
+      #       - Baton Pass, Teleport
+      #       - Memento (why?)
+      #       - Entry hazards (not sure why; just to stack them up?)
+      #       - Wish (just to set it up?)
+      #       - Tailwind (just to set it up?)
+      #       - Lucky Chant (just to set it up?)
+      break if has_super_effective_move
+    end
+    if !non_wonder_guard_foe_exists && !has_super_effective_move
+      # Check reserves for super-effective moves; only switch if there are any
+      reserve_has_super_effective_move = false
+      reserves.each do |pkmn|
+        pkmn.moves.each do |m|
+          next if m.status_move?
+          if ["IgnoreTargetAbility",
+              "CategoryDependsOnHigherDamageIgnoreTargetAbility"].include?(move.function_code)
+            reserve_has_super_effective_move = true
+            break
+          end
+          eff = Effectiveness.calculate(m.type, *foe_types)
+          if Effectiveness.super_effective?(eff)
+            reserve_has_super_effective_move = true
+            break
+          end
+        end
+        break if reserve_has_super_effective_move
+      end
+      next false if !reserve_has_super_effective_move
+      PBDebug.log_ai("#{battler.name} wants to switch because it can't do anything against Wonder Guard")
+      next true
+    end
+    next false
+  }
+)
+
+#===============================================================================
+#
+#===============================================================================
+# TODO: Switch if battler's offensive stats are sufficiently low and it wants to
+#       use damaging moves (CFRU applies this only to a sweeper).
+
+#===============================================================================
+# Pokémon doesn't have an ability that makes it immune to a foe's move, but a
+# reserve does (see def pokemon_can_absorb_move?). The foe's move is chosen
+# randomly, or is their most powerful move if the trainer's skill level is good
+# enough.
+# TODO: Add randomness?
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:absorb_foe_move,
+  proc { |battler, reserves, ai, battle|
+    next false if !ai.trainer.medium_skill?
+    # Not worth it if the battler is evasive enough
+    next false if battler.stages[:EVASION] >= 3
+    # Not worth it if abilities are being negated
+    next false if battle.pbCheckGlobalAbility(:NEUTRALIZINGGAS)
+    # Get the foe move with the highest power (or a random damaging move)
+    foe_moves = []
+    ai.each_foe_battler(battler.side) do |b, i|
+      b.moves.each do |m|
+        next if m.statusMove?
+        # TODO: Improve on m_power with STAB and attack stat/stages and certain
+        #       other damage-altering effects, including base power calculations
+        #       for moves with variable power.
+        m_power = m.power
+        m_power = battler.hp if m.is_a?(Battle::Move::OHKO)
+        m_type = move.pbCalcType(b.battler)
+        foe_moves.push([m_power, m_type, m])
+      end
+    end
+    next false if foe_moves.empty?
+    if ai.trainer.high_skill?
+      foe_moves.sort! { |a, b| a[0] <=> b[0] }   # Highest power move
+      chosen_move = foe_moves.last
+    else
+      chosen_move = foe_moves[ai.pbAIRandom(foe_moves.length)]   # Random move
+    end
+    # Get the chosen move's information
+    move_type = chosen_move[1]
+    move = chosen_move[2]
+    # TODO: Don't bother if the move's power isn't particularly high? Would need
+    #       to figure out what "particularly high" means, probably involving the
+    #       battler's defences in a rough damage calculation (the attacking part
+    #       of which is above).
+    # Check battler for absorbing ability
+    next false if ai.pokemon_can_absorb_move?(battler, move, move_type)
+    # battler can't absorb move; find a party Pokémon that can
+    if reserves.any? { |pkmn| ai.pokemon_can_absorb_move?(pkmn, move, move_type) }
+      PBDebug.log_ai("#{battler.name} wants to switch because it can't absorb a foe's move but a reserve can")
+      next true
+    end
+    next false
+  }
+)
+
+#===============================================================================
+#
+#===============================================================================
+# TODO: Switch if foe is locked into using a single move and a reserve can
+#       resist/no sell it.
+
+#===============================================================================
+#
+#===============================================================================
+# TODO: Switch if a foe is using a damaging two-turn attack and a reserve can
+#       resist/no sell its damage.
+
+#===============================================================================
+# Sudden Death rule (at the end of each round, if one side has more able Pokémon
+# than the other side, that side wins). Avoid fainting at all costs.
+# NOTE: This rule isn't used anywhere.
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:sudden_death,
+  proc { |battler, reserves, ai, battle|
+    next false if !battle.rules["suddendeath"] || battler.turnCount == 0
+    if battler.hp <= battler.totalhp / 2
+      threshold = 100 * (battler.totalhp - battler.hp) / battler.totalhp
+      if ai.pbAIRandom(100) < threshold
+        PBDebug.log_ai("#{battler.name} wants to switch to avoid being KO'd and losing because of the sudden death rule")
+        next true
+      end
+    end
+    next false
+  }
+)
+
+#===============================================================================
+#
+#===============================================================================
+# TODO: Switch if battler is at risk of being KO'd (unless it's at low HP and
+#       paralysed and can't cure itself/benefit from paralysis, as it'll
+#       probably not survive anyway). Don't bother if battler is Aegislash and
+#       could go into Shield Form instead.
+
+#===============================================================================
+# Pokémon is within 5 levels of the foe, and foe's last move was super-effective
+# and powerful.
+# TODO: Review switch deciding.
+#===============================================================================
+Battle::AI::Handlers::ShouldSwitch.add(:high_damage_from_foe,
+  proc { |battler, reserves, ai, battle|
+    next false if !ai.trainer.high_skill?
+    next false if battler.hp >= battler.totalhp / 2
+    big_threat = false
+    ai.each_foe_battler(battler.side) do |b, i|
+      next if (b.level - battler.level).abs > 5
+      next if !b.battler.lastMoveUsed
+      move_data = GameData::Move.get(b.battler.lastMoveUsed)
+      next if move_data.status?
+      eff = battler.effectiveness_of_type_against_battler(move_data.type, b)
+      next if !Effectiveness.super_effective?(eff) || move_data.power < 70
+      switch_chance = (move_data.power > 90) ? 50 : 25
+      big_threat = (ai.pbAIRandom(100) < switch_chance)
+      break if big_threat
+    end
+    if big_threat
+      PBDebug.log_ai("#{battler.name} wants to switch because a foe has a powerful super-effective move")
+      next true
+    end
+    next false
+  }
+)
+
+#===============================================================================
+#===============================================================================
+#===============================================================================
+
+#===============================================================================
+# Don't bother switching if the battler will just faint from entry hazard damage
+# upon switching back in, and if no reserve can remove the entry hazard(s).
+# Switching out in this case means the battler becomes unusable, so it might as
+# well stick around instead and do as much as it can.
+#===============================================================================
+Battle::AI::Handlers::ShouldNotSwitch.add(:lethal_entry_hazards,
+  proc { |battler, reserves, ai, battle|
+    next false if battle.rules["suddendeath"]
+    # Check whether battler will faint from entry hazard(s)
+    entry_hazard_damage = ai.calculate_entry_hazard_damage(battler.pkmn, battler.side)
+    next false if entry_hazard_damage < battler.hp
+    # Check for Rapid Spin
+    reserve_can_remove_hazards = false
+    reserves.each do |pkmn|
+      pkmn.moves.each do |move|
+        reserve_can_remove_hazards = (move.function_code == "RemoveUserBindingAndEntryHazards")
+        break if reserve_can_remove_hazards
+      end
+      break if reserve_can_remove_hazards
+    end
+    next false if reserve_can_remove_hazards
+    PBDebug.log_ai("#{battler.name} won't switch after all because it will faint from entry hazards if it switches back in")
+    next true
+  }
+)
+
+#===============================================================================
+# Don't bother switching (50% chance) if the battler knows a super-effective
+# move.
+#===============================================================================
+Battle::AI::Handlers::ShouldNotSwitch.add(:battler_has_super_effective_move,
+  proc { |battler, reserves, ai, battle|
+    next false if battle.rules["suddendeath"]
+    has_super_effective_move = false
+    battler.eachMove do |move|
+      next if move.pp == 0 && move.total_pp > 0
+      next if move.statusMove?
+      # TODO: next if move is unusable? This would be complicated to implement.
+      move_type = move.type
+      move_type = move.pbCalcType(battler.battler) if ai.trainer.medium_skill?
+      ai.each_foe_battler(battler.side) do |b|
+        # TODO: next if move can't target b? This would be complicated to
+        #       implement.
+        # TODO: Check the move's power as well? Do a (rough) damage calculation
+        #       for it and come up with a threshold % HP?
+        eff = b.effectiveness_of_type_against_battler(move_type, battler)
+        has_super_effective_move = Effectiveness.super_effective?(eff)
+        break if has_super_effective_move
+      end
+      break if has_super_effective_move
+    end
+    if has_super_effective_move && ai.pbAIRandom(100) < 50
+      PBDebug.log_ai("#{battler.name} won't switch after all because it has a super-effective move")
+      next true
+    end
+    next false
+  }
+)
+
+#===============================================================================
+# Don't bother switching if the battler has 4 or more positive stat stages.
+# Negative stat stages are ignored.
+# TODO: Ignore this if deciding whether to use Baton Pass (assuming move-scoring
+#       uses this code).
+#===============================================================================
+Battle::AI::Handlers::ShouldNotSwitch.add(:battler_has_very_raised_stats,
+  proc { |battler, reserves, ai, battle|
+    next false if battle.rules["suddendeath"]
+    stat_raises = 0
+    battler.stages.each_value { |val| stat_raises += val if val > 0 }
+    if stat_raises >= 4
+      PBDebug.log_ai("#{battler.name} won't switch after all because it has a lot of raised stats")
+      next true
+    end
+    next false
+  }
+)

@@ -574,7 +574,7 @@ module Compiler
       trainerid = GameData::TrainerType.get(trtype).id
       filename = GameData::TrainerType.charset_filename_brief(trainerid)
       if FileTest.image_exist?("Graphics/Characters/" + filename)
-        firstpage.graphic.character_name = sprintf(filename)
+        firstpage.graphic.character_name = filename
       end
     end
     # Create strings that will be used repeatedly
@@ -606,15 +606,19 @@ module Compiler
       push_choice(firstpage.list, 0, "Yes", 3)
       if common_event > 0
         if battleid > 0
-          push_script(firstpage.list, sprintf("Phone.add(get_self,\n  %s, %d, %d, %d\n)", brieftrcombo, battles.length, battleid, common_event), 3)
+          push_script(firstpage.list, sprintf("Phone.add(get_self,\n  %s, %d, %d, %d\n)",
+                                              brieftrcombo, battles.length, battleid, common_event), 3)
         else
-          push_script(firstpage.list, sprintf("Phone.add(get_self,\n  %s, %d, nil, %d\n)", brieftrcombo, battles.length, common_event), 3)
+          push_script(firstpage.list, sprintf("Phone.add(get_self,\n  %s, %d, nil, %d\n)",
+                                              brieftrcombo, battles.length, common_event), 3)
         end
       else
         if battleid > 0
-          push_script(firstpage.list, sprintf("Phone.add(get_self,\n  %s, %d, %d\n)", brieftrcombo, battles.length, battleid), 3)
+          push_script(firstpage.list, sprintf("Phone.add(get_self,\n  %s, %d, %d\n)",
+                                              brieftrcombo, battles.length, battleid), 3)
         else
-          push_script(firstpage.list, sprintf("Phone.add(get_self,\n  %s, %d\n)", brieftrcombo, battles.length), 3)
+          push_script(firstpage.list, sprintf("Phone.add(get_self,\n  %s, %d\n)",
+                                              brieftrcombo, battles.length), 3)
         end
       end
       push_choice(firstpage.list, 1, "No", 3)
@@ -694,15 +698,19 @@ module Compiler
       push_choice(lastpage.list, 0, "Yes", 2)
       if common_event > 0
         if battleid > 0
-          push_script(lastpage.list, sprintf("Phone.add(get_self,\n  %s, %d, %d, %d\n)", brieftrcombo, battles.length, battleid, common_event), 2)
+          push_script(lastpage.list, sprintf("Phone.add(get_self,\n  %s, %d, %d, %d\n)",
+                                             brieftrcombo, battles.length, battleid, common_event), 2)
         else
-          push_script(lastpage.list, sprintf("Phone.add(get_self,\n  %s, %d, nil, %d\n)", brieftrcombo, battles.length, common_event), 2)
+          push_script(lastpage.list, sprintf("Phone.add(get_self,\n  %s, %d, nil, %d\n)",
+                                             brieftrcombo, battles.length, common_event), 2)
         end
       else
         if battleid > 0
-          push_script(lastpage.list, sprintf("Phone.add(get_self,\n  %s, %d, %d\n)", brieftrcombo, battles.length, battleid), 2)
+          push_script(lastpage.list, sprintf("Phone.add(get_self,\n  %s, %d, %d\n)",
+                                             brieftrcombo, battles.length, battleid), 2)
         else
-          push_script(lastpage.list, sprintf("Phone.add(get_self,\n  %s, %d\n)", brieftrcombo, battles.length), 2)
+          push_script(lastpage.list, sprintf("Phone.add(get_self,\n  %s, %d\n)",
+                                             brieftrcombo, battles.length), 2)
         end
       end
       push_choice(lastpage.list, 1, "No", 2)
@@ -1012,13 +1020,13 @@ module Compiler
       list[index].parameters[1] = sprintf("WildBattle.start(#{pkmn1}, #{pkmn2})")
       old_indent = list[index].indent
       new_events = []
-      if battle_params[3] && battle_params[5][/false/]
+      if battle_params[5] && battle_params[5][/false/]
         push_script(new_events, "setBattleRule(\"cannotRun\")", old_indent)
       end
-      if battle_params[4] && battle_params[6][/true/]
+      if battle_params[6] && battle_params[6][/true/]
         push_script(new_events, "setBattleRule(\"canLose\")", old_indent)
       end
-      if battle_params[2] && battle_params[4] != "1"
+      if battle_params[4] && battle_params[4] != "1"
         push_script(new_events, "setBattleRule(\"outcome\", #{battle_params[4]})", old_indent)
       end
       list[index, 0] = new_events if new_events.length > 0
@@ -1031,13 +1039,13 @@ module Compiler
       list[index].parameters[1] = sprintf("WildBattle.start(#{pkmn1}, #{pkmn2}, #{pkmn3})")
       old_indent = list[index].indent
       new_events = []
-      if battle_params[3] && battle_params[7][/false/]
+      if battle_params[7] && battle_params[7][/false/]
         push_script(new_events, "setBattleRule(\"cannotRun\")", old_indent)
       end
-      if battle_params[4] && battle_params[8][/true/]
+      if battle_params[8] && battle_params[8][/true/]
         push_script(new_events, "setBattleRule(\"canLose\")", old_indent)
       end
-      if battle_params[2] && battle_params[6] != "1"
+      if battle_params[6] && battle_params[6] != "1"
         push_script(new_events, "setBattleRule(\"outcome\", #{battle_params[6]})", old_indent)
       end
       list[index, 0] = new_events if new_events.length > 0
@@ -1108,7 +1116,7 @@ module Compiler
         speech = battle_params[7].gsub(/^\s*_I\(\s*"\s*/, "").gsub(/\"\s*\)\s*$/, "")
         push_comment(new_events, "EndSpeech2: #{speech.strip}", old_indent)
       end
-      if battle_params[7] && !battle_params[7].empty? && battle_params[11] != "nil"
+      if battle_params[11] && !battle_params[11].empty? && battle_params[11] != "nil"
         speech = battle_params[11].gsub(/^\s*_I\(\s*"\s*/, "").gsub(/\"\s*\)\s*$/, "")
         push_comment(new_events, "EndSpeech3: #{speech.strip}", old_indent)
       end
@@ -1681,9 +1689,9 @@ module Compiler
     Console.echo_li(_INTL("Processing {1} maps...", mapData.mapinfos.keys.length))
     idx = 0
     mapData.mapinfos.keys.sort.each do |id|
-      echo "." if idx % 20 == 0
+      echo "." if idx % 100 == 0
       idx += 1
-      Graphics.update if idx % 250 == 0
+      Graphics.update if idx % 500 == 0
       changed = false
       map = mapData.getMap(id)
       next if !map || !mapData.mapinfos[id]

@@ -1,25 +1,40 @@
 #===============================================================================
-# Text colours
+# Text colors
 #===============================================================================
-# TODO: Unused.
+# Unused
 def ctag(color)
   return sprintf("<c=%s>", color.to_rgb32(true))
 end
 
+# Unused
 def shadowctag(base, shadow)
   return sprintf("<c2=%s%s>", base.to_rgb15, shadow.to_rgb15)
 end
 
+# base and shadow are either instances of class Color, or are arrays containing
+# 3 or 4 integers which are RGB(A) values.
 def shadowc3tag(base, shadow)
-  return sprintf("<c3=%s,%s>", base.to_rgb32, shadow.to_rgb32)
+  if base.is_a?(Color)
+    base_text = base.to_rgb32
+  else
+    base_text = sprintf("%02X%02X%02X", base[0], base[1], base[2])
+    base_text += sprintf("%02X", base[3]) if base[3]
+  end
+  if shadow.is_a?(Color)
+    shadow_text = shadow.to_rgb32
+  else
+    shadow_text = sprintf("%02X%02X%02X", shadow[0], shadow[1], shadow[2])
+    shadow_text += sprintf("%02X", shadow[3]) if shadow[3]
+  end
+  return sprintf("<c3=%s,%s>", base_text, shadow_text)
 end
 
-# TODO: Unused.
+# Unused
 def shadowctagFromColor(color)
   return shadowc3tag(color, color.get_contrast_color)
 end
 
-# TODO: Unused.
+# Unused
 def shadowctagFromRgb(param)
   return shadowctagFromColor(Color.new_from_rgb(param))
 end
@@ -413,125 +428,124 @@ def getFormattedText(bitmap, xDst, yDst, widthDst, heightDst, text, lineheight =
     graphicHeight = nil
     graphicRect = nil
     controls.length.times do |i|
-      if controls[i] && controls[i][2] == position
-        control = controls[i][0]
-        param = controls[i][1]
-        endtag = controls[i][3]
-        case control
-        when "c"
-          if endtag
-            colorstack.pop
-          else
-            color = Color.new_from_rgb(param)
-            colorstack.push([color, nil])
-          end
-        when "c2"
-          if endtag
-            colorstack.pop
-          else
-            base = Color.new_from_rgb(param[0, 4])
-            shadow = Color.new_from_rgb(param[4, 4])
-            colorstack.push([base, shadow])
-          end
-        when "c3"
-          if endtag
-            colorstack.pop
-          else
-            param = param.split(",")
-            # get pure colors unaffected by opacity
-            oldColors = getLastParam(colorstack, defaultcolors)
-            base = (param[0] && param[0] != "") ? Color.new_from_rgb(param[0]) : oldColors[0]
-            shadow = (param[1] && param[1] != "") ? Color.new_from_rgb(param[1]) : oldColors[1]
-            colorstack.push([base, shadow])
-          end
-        when "o"
-          if endtag
-            opacitystack.pop
-          else
-            opacitystack.push(param.sub(/\s+$/, "").to_i)
-          end
-        when "b"
-          boldcount += (endtag ? -1 : 1)
-        when "i"
-          italiccount += (endtag ? -1 : 1)
-        when "u"
-          underlinecount += (endtag ? -1 : 1)
-        when "s"
-          strikecount += (endtag ? -1 : 1)
-        when "outln"
-          outlinecount += (endtag ? -1 : 1)
-        when "outln2"
-          outline2count += (endtag ? -1 : 1)
-        when "fs" # Font size
-          if endtag
-            fontsizestack.pop
-          else
-            fontsizestack.push(param.sub(/\s+$/, "").to_i)
-          end
-          fontsize = getLastParam(fontsizestack, defaultfontsize)
-          bitmap.font.size = fontsize
-        when "fn" # Font name
-          if endtag
-            fontnamestack.pop
-          else
-            fontname = param.sub(/\s+$/, "")
-            fontnamestack.push(Font.exist?(fontname) ? fontname : "Arial")
-          end
-          fontname = getLastParam(fontnamestack, defaultfontname)
-          bitmap.font.name = fontname
-        when "ar" # Right align
-          if endtag
-            alignstack.pop
-          else
-            alignstack.push(1)
-          end
-          nextline = 1 if x > 0 && nextline == 0
-        when "al" # Left align
-          if endtag
-            alignstack.pop
-          else
-            alignstack.push(0)
-          end
-          nextline = 1 if x > 0 && nextline == 0
-        when "ac" # Center align
-          if endtag
-            alignstack.pop
-          else
-            alignstack.push(2)
-          end
-          nextline = 1 if x > 0 && nextline == 0
-        when "icon" # Icon
-          if !endtag
-            param = param.sub(/\s+$/, "")
-            graphic = "Graphics/Icons/#{param}"
-            controls[i] = nil
-            break
-          end
-        when "img" # Icon
-          if !endtag
-            param = param.sub(/\s+$/, "")
-            param = param.split("|")
-            graphic = param[0]
-            if param.length > 1
-              graphicX = param[1].to_i
-              graphicY = param[2].to_i
-              graphicWidth = param[3].to_i
-              graphicHeight = param[4].to_i
-            end
-            controls[i] = nil
-            break
-          end
-        when "br" # Line break
-          nextline += 1 if !endtag
-        when "r" # Right align this line
-          if !endtag
-            x = 0
-            rightalign = 1
-            lastword = [characters.length, x]
-          end
+      next if !controls[i] || controls[i][2] != position
+      control = controls[i][0]
+      param = controls[i][1]
+      endtag = controls[i][3]
+      case control
+      when "c"
+        if endtag
+          colorstack.pop
+        else
+          color = Color.new_from_rgb(param)
+          colorstack.push([color, nil])
         end
-        controls[i] = nil
+      when "c2"
+        if endtag
+          colorstack.pop
+        else
+          base = Color.new_from_rgb(param[0, 4])
+          shadow = Color.new_from_rgb(param[4, 4])
+          colorstack.push([base, shadow])
+        end
+      when "c3"
+        if endtag
+          colorstack.pop
+        else
+          param = param.split(",")
+          # get pure colors unaffected by opacity
+          oldColors = getLastParam(colorstack, defaultcolors)
+          base = (param[0] && param[0] != "") ? Color.new_from_rgb(param[0]) : oldColors[0]
+          shadow = (param[1] && param[1] != "") ? Color.new_from_rgb(param[1]) : oldColors[1]
+          colorstack.push([base, shadow])
+        end
+      when "o"
+        if endtag
+          opacitystack.pop
+        else
+          opacitystack.push(param.sub(/\s+$/, "").to_i)
+        end
+      when "b"
+        boldcount += (endtag ? -1 : 1)
+      when "i"
+        italiccount += (endtag ? -1 : 1)
+      when "u"
+        underlinecount += (endtag ? -1 : 1)
+      when "s"
+        strikecount += (endtag ? -1 : 1)
+      when "outln"
+        outlinecount += (endtag ? -1 : 1)
+      when "outln2"
+        outline2count += (endtag ? -1 : 1)
+      when "fs"   # Font size
+        if endtag
+          fontsizestack.pop
+        else
+          fontsizestack.push(param.sub(/\s+$/, "").to_i)
+        end
+        fontsize = getLastParam(fontsizestack, defaultfontsize)
+        bitmap.font.size = fontsize
+      when "fn"   # Font name
+        if endtag
+          fontnamestack.pop
+        else
+          fontname = param.sub(/\s+$/, "")
+          fontnamestack.push(Font.exist?(fontname) ? fontname : "Arial")
+        end
+        fontname = getLastParam(fontnamestack, defaultfontname)
+        bitmap.font.name = fontname
+      when "ar"   # Right align
+        if endtag
+          alignstack.pop
+        else
+          alignstack.push(1)
+        end
+        nextline = 1 if x > 0 && nextline == 0
+      when "al"   # Left align
+        if endtag
+          alignstack.pop
+        else
+          alignstack.push(0)
+        end
+        nextline = 1 if x > 0 && nextline == 0
+      when "ac"   # Center align
+        if endtag
+          alignstack.pop
+        else
+          alignstack.push(2)
+        end
+        nextline = 1 if x > 0 && nextline == 0
+      when "icon"   # Icon
+        if !endtag
+          param = param.sub(/\s+$/, "")
+          graphic = "Graphics/Icons/#{param}"
+          controls[i] = nil
+          break
+        end
+      when "img"   # Icon
+        if !endtag
+          param = param.sub(/\s+$/, "")
+          param = param.split("|")
+          graphic = param[0]
+          if param.length > 1
+            graphicX = param[1].to_i
+            graphicY = param[2].to_i
+            graphicWidth = param[3].to_i
+            graphicHeight = param[4].to_i
+          end
+          controls[i] = nil
+          break
+        end
+      when "br"   # Line break
+        nextline += 1 if !endtag
+      when "r"   # Right align this line
+        if !endtag
+          x = 0
+          rightalign = 1
+          lastword = [characters.length, x]
+        end
       end
+      controls[i] = nil
     end
     bitmap.font.bold = (boldcount > 0)
     bitmap.font.italic = (italiccount > 0)
@@ -1022,7 +1036,7 @@ end
 def drawFormattedTextEx(bitmap, x, y, width, text, baseColor = nil, shadowColor = nil, lineheight = 32)
   base = baseColor ? baseColor.clone : Color.new(96, 96, 96)
   shadow = shadowColor ? shadowColor.clone : Color.new(208, 208, 200)
-  text = shadowctag(base, shadow) + text
+  text = shadowc3tag(base, shadow) + text
   chars = getFormattedText(bitmap, x, y, width, -1, text, lineheight)
   drawFormattedChars(bitmap, chars)
 end
@@ -1031,6 +1045,16 @@ end
 def pbDrawShadow(bitmap, x, y, width, height, string)
   return if !bitmap || !string
   pbDrawShadowText(bitmap, x, y, width, height, string, nil, bitmap.font.color)
+end
+
+def pbDrawPlainText(bitmap, x, y, width, height, string, baseColor, align = 0)
+  return if !bitmap || !string
+  width = (width < 0) ? bitmap.text_size(string).width + 1 : width
+  height = (height < 0) ? bitmap.text_size(string).height + 1 : height
+  if baseColor && baseColor.alpha > 0
+    bitmap.font.color = baseColor
+    bitmap.draw_text(x, y, width, height, string, align)
+  end
 end
 
 def pbDrawShadowText(bitmap, x, y, width, height, string, baseColor, shadowColor = nil, align = 0)
@@ -1075,24 +1099,29 @@ end
 #  0 - Text to draw
 #  1 - X coordinate
 #  2 - Y coordinate
-#  3 - If true or 1, the text is right aligned. If 2, the text is centered.
-#      Otherwise, the text is left aligned.
+#  3 - Text alignment. Is one of :left (or false or 0), :right (or true or 1) or
+#      :center (or 2). If anything else, the text is left aligned.
 #  4 - Base color
-#  5 - Shadow color
-#  6 - If true or 1, the text has an outline. Otherwise, the text has a shadow.
+#  5 - Shadow color. If nil, there is no shadow.
+#  6 - If :outline (or true or 1), the text has a full outline. If :none (or the
+#      shadow color is nil), there is no shadow. Otherwise, the text has a shadow.
 def pbDrawTextPositions(bitmap, textpos)
   textpos.each do |i|
     textsize = bitmap.text_size(i[0])
     x = i[1]
     y = i[2]
     case i[3]
-    when true, 1   # right align
+    when :right, true, 1   # right align
       x -= textsize.width
-    when 2 # centered
+    when :center, 2   # centered
       x -= (textsize.width / 2)
     end
-    if i[6] == true || i[6] == 1   # outline text
+    i[6] = :none if !i[5]   # No shadow color given, draw plain text
+    case i[6]
+    when :outline, true, 1   # outline text
       pbDrawOutlineText(bitmap, x, y, textsize.width, textsize.height, i[0], i[4], i[5])
+    when :none
+      pbDrawPlainText(bitmap, x, y, textsize.width, textsize.height, i[0], i[4])
     else
       pbDrawShadowText(bitmap, x, y, textsize.width, textsize.height, i[0], i[4], i[5])
     end

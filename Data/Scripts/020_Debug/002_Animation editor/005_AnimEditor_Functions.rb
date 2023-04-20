@@ -1,9 +1,9 @@
 module BattleAnimationEditor
   module_function
 
-  #===============================================================================
+  #=============================================================================
   # Mini battle scene
-  #===============================================================================
+  #=============================================================================
   class MiniBattler
     attr_accessor :index
     attr_accessor :pokemon
@@ -11,9 +11,9 @@ module BattleAnimationEditor
     def initialize(index); self.index = index; end
   end
 
-  #===============================================================================
+  #=============================================================================
   #
-  #===============================================================================
+  #=============================================================================
   class MiniBattle
     attr_accessor :battlers
 
@@ -23,9 +23,9 @@ module BattleAnimationEditor
     end
   end
 
-  #===============================================================================
+  #=============================================================================
   # Pop-up menus for buttons in bottom menu
-  #===============================================================================
+  #=============================================================================
   def pbSelectAnim(canvas, animwin)
     animfiles = []
     pbRgssChdir(File.join("Graphics", "Animations")) { animfiles.concat(Dir.glob("*.png")) }
@@ -182,9 +182,9 @@ module BattleAnimationEditor
     cmdwin.dispose
   end
 
-  #===============================================================================
+  #=============================================================================
   # Pop-up menus for individual cels
-  #===============================================================================
+  #=============================================================================
   def pbChooseNum(cel)
     ret = cel
     sliderwin2 = ControlWindow.new(0, 0, 320, 32 * 5)
@@ -370,9 +370,9 @@ module BattleAnimationEditor
     return
   end
 
-  #===============================================================================
+  #=============================================================================
   # Pop-up menus for buttons in right hand menu
-  #===============================================================================
+  #=============================================================================
   def pbTimingList(canvas)
     commands = []
     cmdNewSound = -1
@@ -380,9 +380,7 @@ module BattleAnimationEditor
     cmdEditBG = -1
     cmdNewFO = -1
     cmdEditFO = -1
-    canvas.animation.timing.each do |i|
-      commands.push(sprintf("%s", i))
-    end
+    canvas.animation.timing.each { |i| commands.push(i.to_s) }
     commands[cmdNewSound = commands.length] = _INTL("Add: Play Sound...")
     commands[cmdNewBG = commands.length] = _INTL("Add: Set Background Graphic...")
     commands[cmdEditBG = commands.length] = _INTL("Add: Edit Background Color/Location...")
@@ -413,7 +411,7 @@ module BattleAnimationEditor
          cmdwin.index != cmdEditFO
         if framewindow.changed?(1) # Set Frame
           canvas.animation.timing[cmdwin.index].frame = framewindow.value(0) - 1
-          cmdwin.commands[cmdwin.index] = sprintf("%s", canvas.animation.timing[cmdwin.index])
+          cmdwin.commands[cmdwin.index] = canvas.animation.timing[cmdwin.index].to_s
           cmdwin.refresh
           next
         end
@@ -476,7 +474,7 @@ module BattleAnimationEditor
           when 2, 4
             pbEditBG(canvas, canvas.animation.timing[cmdwin.index])
           end
-          cmdwin.commands[cmdwin.index] = sprintf("%s", canvas.animation.timing[cmdwin.index])
+          cmdwin.commands[cmdwin.index] = canvas.animation.timing[cmdwin.index].to_s
           cmdwin.refresh
         end
         if redrawcmds
@@ -486,7 +484,7 @@ module BattleAnimationEditor
           cmdwin.commands[cmdNewFO] = nil if cmdNewFO >= 0
           cmdwin.commands[cmdEditFO] = nil if cmdEditFO >= 0
           cmdwin.commands.compact!
-          cmdwin.commands.push(sprintf("%s", canvas.animation.timing[canvas.animation.timing.length - 1]))
+          cmdwin.commands.push(canvas.animation.timing[canvas.animation.timing.length - 1].to_s)
           cmdwin.commands[cmdNewSound = cmdwin.commands.length] = _INTL("Add: Play Sound...")
           cmdwin.commands[cmdNewBG = cmdwin.commands.length] = _INTL("Add: Set Background Graphic...")
           cmdwin.commands[cmdEditBG = cmdwin.commands.length] = _INTL("Add: Edit Background Color/Location...")
