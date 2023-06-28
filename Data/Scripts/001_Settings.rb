@@ -1,6 +1,6 @@
 #==============================================================================#
 #                              Pokémon Essentials                              #
-#                               Version 20.1.dev                               #
+#                                  Version 21                                  #
 #                https://github.com/Maruno17/pokemon-essentials                #
 #==============================================================================#
 
@@ -45,6 +45,8 @@ module Settings
 
   # Whether outdoor maps should be shaded according to the time of day.
   TIME_SHADING                               = true
+  # Whether the reflections of the player/events will ripple horizontally.
+  ANIMATE_REFLECTIONS                        = true
   # Whether poisoned Pokémon will lose HP while walking around in the field.
   POISON_IN_FIELD                            = (MECHANICS_GENERATION <= 4)
   # Whether poisoned Pokémon will faint while walking around in the field
@@ -84,7 +86,7 @@ module Settings
   MORE_BONUS_PREMIER_BALLS                   = (MECHANICS_GENERATION >= 8)
   # The number of steps allowed before a Safari Zone game is over (0=infinite).
   SAFARI_STEPS                               = 600
-  # The number of seconds a Bug Catching Contest lasts for (0=infinite).
+  # The number of seconds a Bug-Catching Contest lasts for (0=infinite).
   BUG_CONTEST_TIME                           = 20 * 60   # 20 minutes
 
   #=============================================================================
@@ -306,23 +308,6 @@ module Settings
 
   #=============================================================================
 
-  # A set of arrays, each containing the details of a wild encounter that can
-  # only occur via using the Poké Radar. The information within each array is as
-  # follows:
-  #   * Map ID on which this encounter can occur.
-  #   * Probability that this encounter will occur (as a percentage).
-  #   * Species.
-  #   * Minimum possible level.
-  #   * Maximum possible level (optional).
-  POKE_RADAR_ENCOUNTERS = [
-    [5,  20, :STARLY,     12, 15],
-    [21, 10, :STANTLER,   14],
-    [28, 20, :BUTTERFREE, 15, 18],
-    [28, 20, :BEEDRILL,   15, 18]
-  ]
-
-  #=============================================================================
-
   # The Game Switch that is set to ON when the player blacks out.
   STARTING_OVER_SWITCH      = 1
   # The Game Switch that is set to ON when the player has seen Pokérus in the
@@ -372,11 +357,11 @@ module Settings
 
   #=============================================================================
 
-  # An array of available languages in the game, and their corresponding
-  # filename. Text files for a language are extracted to a folder called
-  # "Text_filename_core" or "Text_filename_game", and are recompiled into files
-  # in the Data folder called "messages_filename_core.dat" or
-  # "messages_filename_game.dat".
+  # An array of available languages in the game. Each one is an array containing
+  # the display name of the language in-game, and that language's filename
+  # fragment. A language will use the language data files from the Data folder
+  # called messages_FRAGMENT_core.dat and messages_FRAGMENT_game.dat (if they
+  # exist).
   LANGUAGES = [
 #    ["English", "english"],
 #    ["Deutsch", "deutsch"]
@@ -440,11 +425,34 @@ module Settings
     "choice 27",
     "choice 28"
   ]
+
+  #=============================================================================
+
+  # Your game's credits, in an array. You can allow certain lines to be
+  # translated by wrapping them in _INTL() as shown. Blank lines are just "".
+  # To split a line into two columns, put "<s>" in it. Plugin credits and
+  # Essentials engine credits are added to the end of these credits
+  # automatically.
+  def self.game_credits
+    return [
+      _INTL("My Game by:"),
+      "Maruno",
+      "",
+      _INTL("Also involved were:"),
+      "A. Lee Uss<s>Anne O'Nymus",
+      "Ecksam Pell<s>Jane Doe",
+      "Joe Dan<s>Nick Nayme",
+      "Sue Donnim<s>",
+      "",
+      _INTL("Special thanks to:"),
+      "Pizza"
+    ]
+  end
 end
 
 # DO NOT EDIT THESE!
 module Essentials
-  VERSION = "20.1.dev"
+  VERSION = "21"
   ERROR_TEXT = ""
-  MKXPZ_VERSION = "2.4"
+  MKXPZ_VERSION = "2.4.2/ee8dc7e"
 end

@@ -12,10 +12,10 @@ def findBottom(bitmap)
 end
 
 def pbAutoPositionAll
-  t = Time.now.to_i
+  t = System.uptime
   GameData::Species.each do |sp|
-    if Time.now.to_i - t >= 5
-      t = Time.now.to_i
+    if System.uptime - t >= 5
+      t += 5
       Graphics.update
     end
     metrics = GameData::SpeciesMetrics.get_species_form(sp.species, sp.form)
@@ -248,7 +248,7 @@ class SpritePositioner
     @sprites["info"].visible = true
     ret = false
     loop do
-      sprite.visible = (Graphics.frame_count % 16) < 12   # Flash the selected sprite
+      sprite.visible = ((System.uptime * 8).to_i % 4) < 3   # Flash the selected sprite
       Graphics.update
       Input.update
       self.update

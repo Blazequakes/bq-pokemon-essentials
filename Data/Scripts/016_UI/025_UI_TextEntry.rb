@@ -168,7 +168,7 @@ class PokemonEntryScene
     when 4   # Storage box
       @sprites["subject"] = TrainerWalkingCharSprite.new(nil, @viewport)
       @sprites["subject"].altcharset = "Graphics/UI/Naming/icon_storage"
-      @sprites["subject"].animspeed = 4
+      @sprites["subject"].anim_duration = 0.4
       charwidth = @sprites["subject"].bitmap.width
       charheight = @sprites["subject"].bitmap.height
       @sprites["subject"].x = 88 - (charwidth / 8)
@@ -216,19 +216,19 @@ class PokemonEntryScene
             pbPlayDecisionSE
             break
           end
-        elsif index == -1 # Insert a space
+        elsif index == -1   # Insert a space
           if @sprites["entry"].insert(" ")
             pbPlayDecisionSE
           else
             pbPlayBuzzerSE
           end
-        elsif index == -2 # Change character set
+        elsif index == -2   # Change character set
           pbPlayDecisionSE
           @symtype += 1
           @symtype = 0 if @symtype >= @@Characters.length
           @sprites["entry2"].setCharset(@@Characters[@symtype][0])
           @sprites["entry2"].setOtherCharset(@@Characters[@symtype][1])
-        else # Insert given character
+        else   # Insert given character
           if @sprites["entry"].insert(@sprites["entry2"].character)
             pbPlayDecisionSE
           else
@@ -390,7 +390,7 @@ class PokemonEntryScene2
       pbDrawTextPositions(b, textPos)
       @bitmaps[@@Characters.length + i] = b
     end
-    underline_bitmap = BitmapWrapper.new(24, 6)
+    underline_bitmap = Bitmap.new(24, 6)
     underline_bitmap.fill_rect(2, 2, 22, 4, Color.new(168, 184, 184))
     underline_bitmap.fill_rect(0, 0, 22, 4, Color.new(16, 24, 32))
     @bitmaps.push(underline_bitmap)
@@ -449,7 +449,7 @@ class PokemonEntryScene2
     when 4   # Storage box
       @sprites["subject"] = TrainerWalkingCharSprite.new(nil, @viewport)
       @sprites["subject"].altcharset = "Graphics/UI/Naming/icon_storage"
-      @sprites["subject"].animspeed = 4
+      @sprites["subject"].anim_duration = 0.4
       charwidth = @sprites["subject"].bitmap.width
       charheight = @sprites["subject"].bitmap.height
       @sprites["subject"].x = 88 - (charwidth / 8)
@@ -479,7 +479,6 @@ class PokemonEntryScene2
     @sprites["controls"].x = 16
     @sprites["controls"].y = 96
     @sprites["controls"].setBitmap(_INTL("Graphics/UI/Naming/overlay_controls"))
-    @init = true
     @sprites["overlay"] = BitmapSprite.new(Graphics.width, Graphics.height, @viewport)
     pbDoUpdateOverlay2
     @sprites["cursor"] = NameEntryCursor.new(@viewport)
@@ -524,17 +523,10 @@ class PokemonEntryScene2
     @sprites["toptab"].bitmap = @bitmaps[(newtab % @@Characters.length) + @@Characters.length]
     # Move bottom (old) tab down off the screen, and move top (new) tab right
     # onto the screen
-    deltaX = 48 * 20 / Graphics.frame_rate
-    deltaY = 24 * 20 / Graphics.frame_rate
+    timer_start = System.uptime
     loop do
-      if @sprites["bottomtab"].y < 414
-        @sprites["bottomtab"].y += deltaY
-        @sprites["bottomtab"].y = 414 if @sprites["bottomtab"].y > 414
-      end
-      if @sprites["toptab"].x < 22
-        @sprites["toptab"].x += deltaX
-        @sprites["toptab"].x = 22 if @sprites["toptab"].x > 22
-      end
+      @sprites["bottomtab"].y = lerp(162, 414, 0.5, timer_start, System.uptime)
+      @sprites["toptab"].x = lerp(22 - 504, 22, 0.5, timer_start, System.uptime)
       Graphics.update
       Input.update
       pbUpdate
@@ -563,15 +555,12 @@ class PokemonEntryScene2
     @@Characters.length.times do |i|
       @bitmaps[i].update
     end
-    if @init || Graphics.frame_count % 5 == 0
-      @init = false
-      cursorpos = @helper.cursor
-      cursorpos = @maxlength - 1 if cursorpos >= @maxlength
-      cursorpos = 0 if cursorpos < 0
-      @maxlength.times do |i|
-        @blanks[i] = (i == cursorpos) ? 1 : 0
-        @sprites["blank#{i}"].y = [78, 82][@blanks[i]]
-      end
+    # Update which inputted text's character's underline is lowered to indicate
+    # which character is selected
+    cursorpos = @helper.cursor.clamp(0, @maxlength - 1)
+    @maxlength.times do |i|
+      @blanks[i] = (i == cursorpos) ? 1 : 0
+      @sprites["blank#{i}"].y = [78, 82][@blanks[i]]
     end
     pbDoUpdateOverlay
     pbUpdateSpriteHash(@sprites)

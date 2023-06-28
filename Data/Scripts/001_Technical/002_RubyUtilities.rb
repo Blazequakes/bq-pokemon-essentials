@@ -144,14 +144,14 @@ class File
   # Copies the source file to the destination path.
   def self.copy(source, destination)
     data = ""
-    t = Time.now
+    t = System.uptime
     File.open(source, "rb") do |f|
       loop do
         r = f.read(4096)
         break if !r
-        if Time.now - t > 1
+        if System.uptime - t >= 5
+          t += 5
           Graphics.update
-          t = Time.now
         end
         data += r
       end
@@ -388,4 +388,18 @@ end
 
 def nil_or_empty?(string)
   return string.nil? || !string.is_a?(String) || string.size == 0
+end
+
+#===============================================================================
+# Linear interpolation between two values, given the duration of the change and
+# either:
+#   - the time passed since the start of the change (delta), or
+#   - the start time of the change (delta) and the current time (now)
+#===============================================================================
+def lerp(start_val, end_val, duration, delta, now = nil)
+  return end_val if duration <= 0
+  delta = now - delta if now
+  return start_val if delta <= 0
+  return end_val if delta >= duration
+  return start_val + (end_val - start_val) * delta / duration.to_f
 end

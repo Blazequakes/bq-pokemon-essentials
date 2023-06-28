@@ -7,12 +7,12 @@ module Translator
   def gather_script_and_event_texts
     Graphics.update
     begin
-      t = Time.now.to_i
+      t = System.uptime
       texts = []
       # Get script texts from Scripts.rxdata
       $RGSS_SCRIPTS.each do |script|
-        if Time.now.to_i - t >= 5
-          t = Time.now.to_i
+        if System.uptime - t >= 5
+          t += 5
           Graphics.update
         end
         scr = Zlib::Inflate.inflate(script[2])
@@ -22,8 +22,8 @@ module Translator
       # script texts from .rb files in Data/Scripts
       if $RGSS_SCRIPTS.length == 1
         Dir.all("Data/Scripts").each do |script_file|
-          if Time.now.to_i - t >= 5
-            t = Time.now.to_i
+          if System.uptime - t >= 5
+            t += 5
             Graphics.update
           end
           File.open(script_file, "rb") do |f|
@@ -32,12 +32,12 @@ module Translator
         end
       end
       # Get script texts from plugin script files
-      if safeExists?("Data/PluginScripts.rxdata")
+      if FileTest.exist?("Data/PluginScripts.rxdata")
         plugin_scripts = load_data("Data/PluginScripts.rxdata")
         plugin_scripts.each do |plugin|
           plugin[2].each do |script|
-            if Time.now.to_i - t >= 5
-              t = Time.now.to_i
+            if System.uptime - t >= 5
+              t += 5
               Graphics.update
             end
             scr = Zlib::Inflate.inflate(script[1]).force_encoding(Encoding::UTF_8)
@@ -51,8 +51,8 @@ module Translator
       items = []
       choices = []
       commonevents.compact.each do |event|
-        if Time.now.to_i - t >= 5
-          t = Time.now.to_i
+        if System.uptime - t >= 5
+          t += 5
           Graphics.update
         end
         begin
@@ -99,8 +99,8 @@ module Translator
           end
         end
       end
-      if Time.now.to_i - t >= 5
-        t = Time.now.to_i
+      if System.uptime - t >= 5
+        t += 5
         Graphics.update
       end
       items |= []
@@ -110,8 +110,8 @@ module Translator
       # Find all text in map events and add them to messages
       mapinfos = pbLoadMapInfos
       mapinfos.each_key do |id|
-        if Time.now.to_i - t >= 5
-          t = Time.now.to_i
+        if System.uptime - t >= 5
+          t += 5
           Graphics.update
         end
         filename = sprintf("Data/Map%03d.rxdata", id)
@@ -120,8 +120,8 @@ module Translator
         items = []
         choices = []
         map.events.each_value do |event|
-          if Time.now.to_i - t >= 5
-            t = Time.now.to_i
+          if System.uptime - t >= 5
+            t += 5
             Graphics.update
           end
           begin
@@ -170,16 +170,16 @@ module Translator
             end
           end
         end
-        if Time.now.to_i - t >= 5
-          t = Time.now.to_i
+        if System.uptime - t >= 5
+          t += 5
           Graphics.update
         end
         items |= []
         choices |= []
         items.concat(choices)
         MessageTypes.setMapMessagesAsHash(id, items) if items.length > 0
-        if Time.now.to_i - t >= 5
-          t = Time.now.to_i
+        if System.uptime - t >= 5
+          t += 5
           Graphics.update
         end
       end
@@ -511,12 +511,12 @@ class Translation
   def load_message_files(filename)
     begin
       core_filename = sprintf("Data/messages_%s_core.dat", filename)
-      if safeExists?(core_filename)
+      if FileTest.exist?(core_filename)
         pbRgssOpen(core_filename, "rb") { |f| @core_messages = Marshal.load(f) }
       end
       @core_messages = nil if !@core_messages.is_a?(Array)
       game_filename = sprintf("Data/messages_%s_game.dat", filename)
-      if safeExists?(game_filename)
+      if FileTest.exist?(game_filename)
         pbRgssOpen(game_filename, "rb") { |f| @game_messages = Marshal.load(f) }
       end
       @game_messages = nil if !@game_messages.is_a?(Array)
@@ -529,11 +529,11 @@ class Translation
   def load_default_messages
     return if @default_core_messages
     begin
-      if safeExists?("Data/messages_core.dat")
+      if FileTest.exist?("Data/messages_core.dat")
         pbRgssOpen("Data/messages_core.dat", "rb") { |f| @default_core_messages = Marshal.load(f) }
       end
       @default_core_messages = [] if !@default_core_messages.is_a?(Array)
-      if safeExists?("Data/messages_game.dat")
+      if FileTest.exist?("Data/messages_game.dat")
         pbRgssOpen("Data/messages_game.dat", "rb") { |f| @default_game_messages = Marshal.load(f) }
       end
       @default_game_messages = [] if !@default_game_messages.is_a?(Array)

@@ -7,6 +7,14 @@ ItemHandlers::UseText.add(:BICYCLE, proc { |item|
 
 ItemHandlers::UseText.copy(:BICYCLE, :MACHBIKE, :ACROBIKE)
 
+ItemHandlers::UseText.add(:EXPALLOFF, proc { |item|
+  next _INTL("Turn on")
+})
+
+ItemHandlers::UseText.add(:EXPALL, proc { |item|
+  next _INTL("Turn off")
+})
+
 #===============================================================================
 # UseFromBag handlers
 # Return values: 0 = not used
@@ -159,17 +167,29 @@ EventHandlers.add(:on_player_step_taken, :repel_counter,
 
 ItemHandlers::UseInField.add(:BLACKFLUTE, proc { |item|
   pbUseItemMessage(item)
-  pbMessage(_INTL("Wild Pokémon will be repelled."))
-  $PokemonMap.blackFluteUsed = true
-  $PokemonMap.whiteFluteUsed = false
+  if Settings::FLUTES_CHANGE_WILD_ENCOUNTER_LEVELS
+    pbMessage(_INTL("Now you're more likely to encounter high-level Pokémon!"))
+    $PokemonMap.higher_level_wild_pokemon = true
+    $PokemonMap.lower_level_wild_pokemon = false
+  else
+    pbMessage(_INTL("The likelihood of encountering Pokémon decreased!"))
+    $PokemonMap.lower_encounter_rate = true
+    $PokemonMap.higher_encounter_rate = false
+  end
   next true
 })
 
 ItemHandlers::UseInField.add(:WHITEFLUTE, proc { |item|
   pbUseItemMessage(item)
-  pbMessage(_INTL("Wild Pokémon will be lured."))
-  $PokemonMap.blackFluteUsed = false
-  $PokemonMap.whiteFluteUsed = true
+  if Settings::FLUTES_CHANGE_WILD_ENCOUNTER_LEVELS
+    pbMessage(_INTL("Now you're more likely to encounter low-level Pokémon!"))
+    $PokemonMap.lower_level_wild_pokemon = true
+    $PokemonMap.higher_level_wild_pokemon = false
+  else
+    pbMessage(_INTL("The likelihood of encountering Pokémon increased!"))
+    $PokemonMap.higher_encounter_rate = true
+    $PokemonMap.lower_encounter_rate = false
+  end
   next true
 })
 
@@ -301,10 +321,10 @@ ItemHandlers::UseInField.add(:ITEMFINDER, proc { |item|
     offsetY = event.y - $game_player.y
     if offsetX == 0 && offsetY == 0   # Standing on the item, spin around
       4.times do
-        pbWait(Graphics.frame_rate * 2 / 10)
+        pbWait(0.2)
         $game_player.turn_right_90
       end
-      pbWait(Graphics.frame_rate * 3 / 10)
+      pbWait(0.3)
       pbMessage(_INTL("The {1}'s indicating something right underfoot!", GameData::Item.get(item).name))
     else   # Item is nearby, face towards it
       direction = $game_player.direction
@@ -319,7 +339,7 @@ ItemHandlers::UseInField.add(:ITEMFINDER, proc { |item|
       when 6 then $game_player.turn_right
       when 8 then $game_player.turn_up
       end
-      pbWait(Graphics.frame_rate * 3 / 10)
+      pbWait(0.3)
       pbMessage(_INTL("Huh? The {1}'s responding!", GameData::Item.get(item).name) + "\1")
       pbMessage(_INTL("There's an item buried around here!"))
     end

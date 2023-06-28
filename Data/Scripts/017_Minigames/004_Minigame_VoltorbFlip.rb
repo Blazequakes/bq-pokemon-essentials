@@ -94,10 +94,11 @@ class VoltorbFlip
     pbUpdateCoins
     # Draw curtain effect
     if @firstRound
-      angleDiff = 10 * 20 / Graphics.frame_rate
+      curtain_duration = 0.5
+      timer_start = System.uptime
       loop do
-        @sprites["curtainL"].angle -= angleDiff
-        @sprites["curtainR"].angle += angleDiff
+        @sprites["curtainL"].angle = lerp(-90, -180, curtain_duration, timer_start, System.uptime)
+        @sprites["curtainR"].angle = lerp(0, 90, curtain_duration, timer_start, System.uptime)
         Graphics.update
         Input.update
         update
@@ -265,7 +266,7 @@ class VoltorbFlip
           end
         end
         pbDrawImagePositions(@sprites["mark"].bitmap, @marks)
-        pbWait(Graphics.frame_rate / 20)
+        pbWait(0.05)
       else
         # Display the tile for the selected spot
         icons = []
@@ -283,7 +284,7 @@ class VoltorbFlip
                 animation[0] = icons[0] = [@directory + "tiles", (@index[0] * 64) + 128, @index[1] * 64,
                                            704 + (64 * j), 0, 64, 64]
                 pbDrawImagePositions(@sprites["animation"].bitmap, animation)
-                pbWait(Graphics.frame_rate / 20)
+                pbWait(0.05)
                 @sprites["animation"].bitmap.clear
               end
               # Part2
@@ -292,11 +293,11 @@ class VoltorbFlip
                 animation[0] = [@directory + "explosion", (@index[0] * 64) - 32 + 128, (@index[1] * 64) - 32,
                                 j * 128, 0, 128, 128]
                 pbDrawImagePositions(@sprites["animation"].bitmap, animation)
-                pbWait(Graphics.frame_rate / 10)
+                pbWait(0.1)
                 @sprites["animation"].bitmap.clear
               end
               # Unskippable text block, parameter 2 = wait time (corresponds to ME length)
-              pbMessage(_INTL("\\me[Voltorb Flip game over]Oh no! You get 0 Coins!\\wtnp[50]"))
+              pbMessage("\\me[Voltorb Flip game over]" + _INTL("Oh no! You get 0 Coins!") + "\\wtnp[50]")
               pbShowAndDispose
               @sprites["mark"].bitmap.clear
               if @level > 1
@@ -309,7 +310,7 @@ class VoltorbFlip
                 if @level > newLevel
                   @level = newLevel
                   @level = 1 if @level < 1
-                  pbMessage(_INTL("\\se[Voltorb Flip level down]Dropped to Game Lv. {1}!", @level.to_s))
+                  pbMessage("\\se[Voltorb Flip level down]" + _INTL("Dropped to Game Lv. {1}!", @level.to_s))
                 end
               end
               # Update level text
@@ -334,7 +335,7 @@ class VoltorbFlip
                 animation[0] = [@directory + "flipAnimation", (@index[0] * 64) - 14 + 128, (@index[1] * 64) - 16,
                                 j * 92, 0, 92, 96]
                 pbDrawImagePositions(@sprites["animation"].bitmap, animation)
-                pbWait(Graphics.frame_rate / 20)
+                pbWait(0.05)
                 @sprites["animation"].bitmap.clear
               end
               if @points == 0
@@ -357,10 +358,10 @@ class VoltorbFlip
       # Game cleared
       if count == 0
         @sprites["curtain"].opacity = 100
-        pbMessage(_INTL("\\me[Voltorb Flip win]Game clear!\\wtnp[40]"))
+        pbMessage("\\me[Voltorb Flip win]" + _INTL("Game clear!") + "\\wtnp[40]")
 #        pbMessage(_INTL("You've found all of the hidden x2 and x3 cards."))
 #        pbMessage(_INTL("This means you've found all the Coins in this game, so the game is now over."))
-        pbMessage(_INTL("\\se[Voltorb Flip gain coins]{1} received {2} Coins!", $player.name, @points.to_s_formatted))
+        pbMessage("\\se[Voltorb Flip gain coins]" + _INTL("{1} received {2} Coins!", $player.name, @points.to_s_formatted))
         # Update level text
         @sprites["level"].bitmap.clear
         pbDrawShadowText(@sprites["level"].bitmap, 8, 154, 118, 28, _INTL("Level {1}", @level.to_s),
@@ -381,7 +382,7 @@ class VoltorbFlip
         @sprites["curtain"].opacity = 100
         if @level < 8
           @level += 1
-          pbMessage(_INTL("\\se[Voltorb Flip level up]Advanced to Game Lv. {1}!", @level.to_s))
+          pbMessage("\\se[Voltorb Flip level up]" + _INTL("Advanced to Game Lv. {1}!", @level.to_s))
           if @firstRound
 #            pbMessage(_INTL("Congratulations!"))
 #            pbMessage(_INTL("You can receive even more Coins in the next game!"))
@@ -474,7 +475,7 @@ class VoltorbFlip
       points = tile if i == 2
       icons[i] = [@directory + "tiles", x, y, 320 + (i * 64) + (points * 64), 0, 64, 64]
       pbDrawImagePositions(@sprites["icon"].bitmap, icons)
-      pbWait(Graphics.frame_rate / 20)
+      pbWait(0.05)
     end
     icons[3] = [@directory + "tiles", x, y, tile * 64, 0, 64, 64]
     pbDrawImagePositions(@sprites["icon"].bitmap, icons)
@@ -485,14 +486,14 @@ class VoltorbFlip
     # Make pre-rendered sprites visible (this approach reduces lag)
     5.times do |i|
       @sprites[i].visible = true
-      pbWait(Graphics.frame_rate / 20) if i < 3
+      pbWait(0.05) if i < 3
       @sprites[i].bitmap.clear
       @sprites[i].z = 99997
     end
     pbSEPlay("Voltorb Flip tile")
     @sprites[5].visible = true
     @sprites["mark"].bitmap.clear
-    pbWait(Graphics.frame_rate / 10)
+    pbWait(0.1)
     # Wait for user input to continue
     loop do
       Graphics.update
@@ -511,22 +512,22 @@ class VoltorbFlip
                     448 + (@squares[i + (j * 5)][2] * 64), 0, 64, 64]
       end
       pbDrawImagePositions(@sprites[i].bitmap, icons)
-      pbWait(Graphics.frame_rate / 20)
+      pbWait(0.05)
       5.times do |j|
         icons[j] = [@directory + "tiles", @squares[i + (j * 5)][0], @squares[i + (j * 5)][1], 384, 0, 64, 64]
       end
       pbDrawImagePositions(@sprites[i].bitmap, icons)
-      pbWait(Graphics.frame_rate / 20)
+      pbWait(0.05)
       5.times do |j|
         icons[j] = [@directory + "tiles", @squares[i + (j * 5)][0], @squares[i + (j * 5)][1], 320, 0, 64, 64]
       end
       pbDrawImagePositions(@sprites[i].bitmap, icons)
-      pbWait(Graphics.frame_rate / 20)
+      pbWait(0.05)
       5.times do |j|
         icons[j] = [@directory + "tiles", @squares[i + (j * 5)][0], @squares[i + (j * 5)][1], 896, 0, 64, 64]
       end
       pbDrawImagePositions(@sprites[i].bitmap, icons)
-      pbWait(Graphics.frame_rate / 20)
+      pbWait(0.05)
     end
     @sprites["icon"].bitmap.clear
     6.times do |i|
@@ -535,12 +536,10 @@ class VoltorbFlip
     @sprites["cursor"].bitmap.clear
   end
 
-#  def pbWaitText(msg,frames)
-#    msgwindow=pbCreateMessageWindow
-#    pbMessageDisplay(msgwindow,msg)
-#    frames.times do
-#      pbWait(1)
-#    end
+#  def pbWaitText(msg, frames)
+#    msgwindow = pbCreateMessageWindow
+#    pbMessageDisplay(msgwindow, msg)
+#    pbWait(frames / 20.0)
 #    pbDisposeMessageWindow(msgwindow)
 #  end
 
@@ -550,12 +549,11 @@ class VoltorbFlip
     # Draw curtain effect
     @sprites["curtainL"].visible = true
     @sprites["curtainR"].visible = true
-    angleDiff = 18 * 20 / Graphics.frame_rate
+    curtain_duration = 0.25
+    timer_start = System.uptime
     loop do
-      @sprites["curtainL"].angle += angleDiff
-      @sprites["curtainR"].angle -= angleDiff
-      # Fixes a minor graphical bug
-      @sprites["curtainL"].y -= 2 if @sprites["curtainL"].angle >= -90
+      @sprites["curtainL"].angle = lerp(-180, -90, curtain_duration, timer_start, System.uptime)
+      @sprites["curtainR"].angle = lerp(90, 0, curtain_duration, timer_start, System.uptime)
       Graphics.update
       Input.update
       update

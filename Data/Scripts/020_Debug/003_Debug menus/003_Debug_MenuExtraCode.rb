@@ -89,13 +89,18 @@ class SpriteWindow_DebugVariables < Window_DrawableCommand
         code_parts[0].strip!
         code_parts[0].gsub!(/^\s*!/, "")
         val = nil
-        if code_parts[0][0].upcase == code_parts[0][0] &&
-           (Kernel.const_defined?(code_parts[0]) rescue false)
-          val = (eval(code) rescue nil)   # Code starts with a class/method name
-        elsif code_parts[0][0].downcase == code_parts[0][0] &&
-              !(Interpreter.method_defined?(code_parts[0].to_sym) rescue false) &&
-              !(Game_Event.method_defined?(code_parts[0].to_sym) rescue false)
-          val = (eval(code) rescue nil)   # Code starts with a method name (that isn't in Interpreter/Game_Event)
+        if code_parts[0][0][/[a-z]/i]
+          if code_parts[0][0].upcase == code_parts[0][0] &&
+             (Kernel.const_defined?(code_parts[0]) rescue false)
+            val = (eval(code) rescue nil)   # Code starts with a class/method name
+          elsif code_parts[0][0].downcase == code_parts[0][0] &&
+                !(Interpreter.method_defined?(code_parts[0].to_sym) rescue false) &&
+                !(Game_Event.method_defined?(code_parts[0].to_sym) rescue false)
+            val = (eval(code) rescue nil)   # Code starts with a method name (that isn't in Interpreter/Game_Event)
+          end
+        else
+          # Code doesn't start with a letter, probably $, just evaluate it
+          val = (eval(code) rescue nil)
         end
       else
         val = $game_switches[index + 1]
@@ -180,14 +185,14 @@ def pbDebugVariables(mode)
     end
     current_id = right_window.index + 1
     case mode
-    when 0 # Switches
+    when 0   # Switches
       if Input.trigger?(Input::USE)
         pbPlayDecisionSE
         $game_switches[current_id] = !$game_switches[current_id]
         right_window.refresh
         $game_map.need_refresh = true
       end
-    when 1 # Variables
+    when 1   # Variables
       if Input.repeat?(Input::LEFT)
         pbDebugSetVariable(current_id, -1)
         right_window.refresh
@@ -591,10 +596,10 @@ end
 
 def pbImportAllAnimations
   animationFolders = []
-  if safeIsDirectory?("Animations")
+  if FileTest.directory?("Animations")
     Dir.foreach("Animations") do |fb|
       f = "Animations/" + fb
-      animationFolders.push(f) if safeIsDirectory?(f) && fb != "." && fb != ".."
+      animationFolders.push(f) if FileTest.directory?(f) && fb != "." && fb != ".."
     end
   end
   if animationFolders.length == 0
@@ -634,14 +639,14 @@ def pbImportAllAnimations
           textdata.id = -1   # This is not an RPG Maker XP animation
           BattleAnimationEditor.pbConvertAnimToNewFormat(textdata)
           if textdata.graphic && textdata.graphic != "" &&
-             !safeExists?(folder + "/" + textdata.graphic) &&
+             !FileTest.exist?(folder + "/" + textdata.graphic) &&
              !FileTest.image_exist?("Graphics/Animations/" + textdata.graphic)
             textdata.graphic = ""
             missingFiles.push(textdata.graphic)
           end
           textdata.timing.each do |timing|
             next if !timing.name || timing.name == "" ||
-                    safeExists?(folder + "/" + timing.name) ||
+                    FileTest.exist?(folder + "/" + timing.name) ||
                     FileTest.audio_exist?("Audio/SE/Anim/" + timing.name)
             timing.name = ""
             missingFiles.push(timing.name)
@@ -665,14 +670,14 @@ def pbDebugFixInvalidTiles
   num_error_maps = 0
   tilesets = $data_tilesets
   mapData = Compiler::MapData.new
-  t = Time.now.to_i
+  t = System.uptime
   Graphics.update
   total_maps = mapData.mapinfos.keys.length
   Console.echo_h1(_INTL("Checking {1} maps for invalid tiles", total_maps))
   mapData.mapinfos.keys.sort.each do |id|
-    if Time.now.to_i - t >= 5
+    if System.uptime - t >= 5
+      t += 5
       Graphics.update
-      t = Time.now.to_i
     end
     map_errors = 0
     map = mapData.getMap(id)

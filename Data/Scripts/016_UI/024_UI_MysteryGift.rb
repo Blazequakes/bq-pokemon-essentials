@@ -59,7 +59,7 @@ def pbEditMysteryGift(type, item, id = 0, giftname = "")
     if id == 0
       master = []
       idlist = []
-      if safeExists?("MysteryGiftMaster.txt")
+      if FileTest.exist?("MysteryGiftMaster.txt")
         master = IO.read("MysteryGiftMaster.txt")
         master = pbMysteryGiftDecrypt(master)
       end
@@ -101,7 +101,7 @@ def pbCreateMysteryGift(type, item)
   gift = pbEditMysteryGift(type, item)
   if gift
     begin
-      if safeExists?("MysteryGiftMaster.txt")
+      if FileTest.exist?("MysteryGiftMaster.txt")
         master = IO.read("MysteryGiftMaster.txt")
         master = pbMysteryGiftDecrypt(master)
         master.push(gift)
@@ -124,7 +124,7 @@ end
 # file to be uploaded.
 #===============================================================================
 def pbManageMysteryGifts
-  if !safeExists?("MysteryGiftMaster.txt")
+  if !FileTest.exist?("MysteryGiftMaster.txt")
     pbMessage(_INTL("There are no Mystery Gifts defined."))
     return
   end
@@ -286,32 +286,28 @@ def pbDownloadMysteryGift(trainer)
             sprite.x = Graphics.width / 2
             sprite.y = -sprite.height / 2
           end
-          distanceDiff = 8 * 20 / Graphics.frame_rate
+          timer_start = System.uptime
+          start_y = sprite.y
           loop do
+            sprite.y = lerp(start_y, Graphics.height / 2, 1.5, timer_start, System.uptime)
             Graphics.update
             Input.update
             sprite.update
-            sprite.y += distanceDiff
             break if sprite.y >= Graphics.height / 2
           end
           pbMEPlay("Battle capture success")
-          (Graphics.frame_rate * 3).times do
-            Graphics.update
-            Input.update
-            sprite.update
-            pbUpdateSceneMap
-          end
+          pbWait(3.0) { sprite.update }
           sprites["msgwindow"].visible = true
           pbMessageDisplay(sprites["msgwindow"], _INTL("The gift has been received!") + "\1") { sprite.update }
           pbMessageDisplay(sprites["msgwindow"], _INTL("Please pick up your gift from the deliveryman in any Poké Mart.")) { sprite.update }
           trainer.mystery_gifts.push(gift)
           pending.delete_at(command)
-          opacityDiff = 16 * 20 / Graphics.frame_rate
+          timer_start = System.uptime
           loop do
+            sprite.opacity = lerp(255, 0, 1.5, timer_start, System.uptime)
             Graphics.update
             Input.update
             sprite.update
-            sprite.opacity -= opacityDiff
             break if sprite.opacity <= 0
           end
           sprite.dispose
@@ -378,15 +374,14 @@ def pbReceiveMysteryGift(id)
   if gift[1] == 0   # Pokémon
     gift[2].personalID = rand(2**16) | (rand(2**16) << 16)
     gift[2].calc_stats
-    time = pbGetTimeNow
-    gift[2].timeReceived = time.getgm.to_i
+    gift[2].timeReceived = Time.now.to_i
     gift[2].obtain_method = 4   # Fateful encounter
     gift[2].record_first_moves
     gift[2].obtain_level = gift[2].level
     gift[2].obtain_map = $game_map&.map_id || 0
     was_owned = $player.owned?(gift[2].species)
     if pbAddPokemonSilent(gift[2])
-      pbMessage(_INTL("\\me[Pkmn get]{1} received {2}!", $player.name, gift[2].name))
+      pbMessage("\\me[Pkmn get]" + _INTL("{1} received {2}!", $player.name, gift[2].name))
       $player.mystery_gifts[index] = [id]
       # Show Pokédex entry for new species if it hasn't been owned before
       if Settings::SHOW_NEW_SPECIES_POKEDEX_ENTRY_MORE_OFTEN && !was_owned && $player.has_pokedex
