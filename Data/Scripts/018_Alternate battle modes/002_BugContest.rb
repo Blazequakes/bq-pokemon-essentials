@@ -5,7 +5,7 @@ class BugContestState
   attr_accessor :ballcount
   attr_accessor :decision
   attr_accessor :lastPokemon
-  attr_reader   :timer
+  attr_accessor :timer_start
 
   CONTESTANT_NAMES = [
     _INTL("Bug Catcher Ed"),
@@ -17,7 +17,7 @@ class BugContestState
     _INTL("Picnicker Cindy"),
     _INTL("Youngster Samuel")
   ]
-  TIME_ALLOWED = Settings::BUG_CONTEST_TIME
+  TIME_ALLOWED = Settings::BUG_CONTEST_TIME   # In seconds
 
   def initialize
     clear
@@ -27,16 +27,13 @@ class BugContestState
   # Returns whether the last contest ended less than 24 hours ago.
   def pbContestHeld?
     return false if !@lastContest
-    timenow = pbGetTimeNow
-    return timenow.to_i - @lastContest < 24 * 60 * 60   # 24 hours
+    return pbGetTimeNow.to_i - @lastContest < 24 * 60 * 60   # 24 hours
   end
 
   def expired?
     return false if !undecided?
     return false if TIME_ALLOWED <= 0
-    curtime = @timer + (TIME_ALLOWED * Graphics.frame_rate)
-    curtime = [curtime - Graphics.frame_count, 0].max
-    return (curtime <= 0)
+    return System.uptime - timer_start >= TIME_ALLOWED
   end
 
   def clear
@@ -128,7 +125,7 @@ class BugContestState
       score = pbBugContestScore(pokemon)
       judgearray.push([cont, pokemon.species, score])
     end
-    raise _INTL("Too few bug catching contestants") if judgearray.length < 3
+    raise _INTL("Too few bug-catching contestants") if judgearray.length < 3
     judgearray.sort! { |a, b| b[2] <=> a[2] }   # sort by score in descending order
     @places.push(judgearray[0])
     @places.push(judgearray[1])
@@ -177,7 +174,7 @@ class BugContestState
     @otherparty = []
     @lastPokemon = nil
     @lastContest = nil
-    @timer = Graphics.frame_count
+    @timer_start = System.uptime
     @places = []
     chosenpkmn = $player.party[@chosenPokemon]
     $player.party.length.times do |i|
@@ -222,8 +219,7 @@ class BugContestState
     @otherparty = []
     @contestMaps = []
     @reception = []
-    timenow = pbGetTimeNow
-    @lastContest = timenow.to_i
+    @lastContest = pbGetTimeNow.to_i
     $game_map.need_refresh = true
   end
 end
@@ -232,12 +228,14 @@ end
 #
 #===============================================================================
 class TimerDisplay # :nodoc:
-  def initialize(start, maxtime)
+  attr_accessor :start_time
+
+  def initialize(start_time, max_time)
     @timer = Window_AdvancedTextPokemon.newWithSize("", Graphics.width - 120, 0, 120, 64)
     @timer.z = 99999
-    @total_sec = nil
-    @start = start
-    @maxtime = maxtime
+    @start_time = start_time
+    @max_time = max_time
+    @display_time = nil
   end
 
   def dispose
@@ -249,14 +247,12 @@ class TimerDisplay # :nodoc:
   end
 
   def update
-    curtime = [(@start + @maxtime) - Graphics.frame_count, 0].max
-    curtime /= Graphics.frame_rate
-    if curtime != @total_sec
-      # Calculate total number of seconds
-      @total_sec = curtime
-      # Make a string for displaying the timer
-      min = @total_sec / 60
-      sec = @total_sec % 60
+    time_left = @max_time - (System.uptime - @start_time).to_i
+    time_left = 0 if time_left < 0
+    if @display_time != time_left
+      @display_time = time_left
+      min = @display_time / 60
+      sec = @display_time % 60
       @timer.text = _ISPRINTF("<ac>{1:02d}:{2:02d}", min, sec)
     end
   end
@@ -265,7 +261,7 @@ end
 #===============================================================================
 #
 #===============================================================================
-# Returns a score for this Pokemon in the Bug Catching Contest.
+# Returns a score for this Pokemon in the Bug-Catching Contest.
 # Not exactly the HGSS calculation, but it should be decent enough.
 def pbBugContestScore(pkmn)
   levelscore = pkmn.level * 4
@@ -287,17 +283,17 @@ def pbBugContestState
   return $PokemonGlobal.bugContestState
 end
 
-# Returns true if the Bug Catching Contest in progress
+# Returns true if the Bug-Catching Contest in progress
 def pbInBugContest?
   return pbBugContestState.inProgress?
 end
 
-# Returns true if the Bug Catching Contest in progress and has not yet been judged
+# Returns true if the Bug-Catching Contest in progress and has not yet been judged
 def pbBugContestUndecided?
   return pbBugContestState.undecided?
 end
 
-# Returns true if the Bug Catching Contest in progress and is being judged
+# Returns true if the Bug-Catching Contest in progress and is being judged
 def pbBugContestDecided?
   return pbBugContestState.decided?
 end
@@ -318,8 +314,7 @@ EventHandlers.add(:on_map_or_spriteset_change, :show_bug_contest_timer,
   proc { |scene, _map_changed|
     next if !pbInBugContest? || pbBugContestState.decision != 0 || BugContestState::TIME_ALLOWED == 0
     scene.spriteset.addUserSprite(
-      TimerDisplay.new(pbBugContestState.timer,
-                       BugContestState::TIME_ALLOWED * Graphics.frame_rate)
+      TimerDisplay.new(pbBugContestState.timer_start, BugContestState::TIME_ALLOWED)
     )
   }
 )

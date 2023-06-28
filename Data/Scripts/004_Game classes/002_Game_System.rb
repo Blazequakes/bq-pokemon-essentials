@@ -8,8 +8,8 @@
 class Game_System
   attr_reader   :map_interpreter          # map event interpreter
   attr_reader   :battle_interpreter       # battle event interpreter
-  attr_accessor :timer                    # timer
-  attr_accessor :timer_working            # timer working flag
+  attr_accessor :timer_start              # $stats.play_time when timer was started, or nil
+  attr_accessor :timer_duration           # Time (in seconds) the timer is initially set to
   attr_accessor :save_disabled            # save forbidden
   attr_accessor :menu_disabled            # menu forbidden
   attr_accessor :encounter_disabled       # encounter forbidden
@@ -24,8 +24,8 @@ class Game_System
   def initialize
     @map_interpreter    = Interpreter.new(0, true)
     @battle_interpreter = Interpreter.new(0, false)
-    @timer              = 0
-    @timer_working      = false
+    @timer_start        = nil
+    @timer_duration     = 0
     @save_disabled      = false
     @menu_disabled      = false
     @encounter_disabled = false
@@ -41,39 +41,43 @@ class Game_System
 
   #-----------------------------------------------------------------------------
 
-  def bgm_play(bgm)
+  def bgm_play(bgm, track = nil)
     old_pos = @bgm_position
     @bgm_position = 0
-    bgm_play_internal(bgm, 0)
+    bgm_play_internal(bgm, 0, track)
     @bgm_position = old_pos
   end
 
-  def bgm_play_internal2(name, volume, pitch, position) # :nodoc:
+  def bgm_play_internal2(name, volume, pitch, position, track = nil) # :nodoc:
     vol = volume
     vol *= $PokemonSystem.bgmvolume / 100.0
     vol = vol.to_i
     begin
-      Audio.bgm_play(name, vol, pitch, position)
+      Audio.bgm_play(name, vol, pitch, position, track)
     rescue ArgumentError
-      Audio.bgm_play(name, vol, pitch)
+      Audio.bgm_play(name, vol, pitch, 0, track)
     end
   end
 
-  def bgm_play_internal(bgm, position) # :nodoc:
-    @bgm_position = position if !@bgm_paused
-    @playing_bgm = bgm&.clone
+  def bgm_play_internal(bgm, position, track = nil) # :nodoc:
+    if !track || track == 0
+      @bgm_position = position if !@bgm_paused
+      @playing_bgm = bgm&.clone
+    end
     if bgm && bgm.name != ""
       if !@defaultBGM && FileTest.audio_exist?("Audio/BGM/" + bgm.name)
-        bgm_play_internal2("Audio/BGM/" + bgm.name, bgm.volume, bgm.pitch, @bgm_position)
+        bgm_play_internal2("Audio/BGM/" + bgm.name, bgm.volume, bgm.pitch, @bgm_position, track)
       end
     else
-      @bgm_position = position if !@bgm_paused
-      @playing_bgm = nil
-      Audio.bgm_stop if !@defaultBGM
+      if !track || track == 0
+        @bgm_position = position if !@bgm_paused
+        @playing_bgm = nil
+      end
+      Audio.bgm_stop(track) if !@defaultBGM
     end
     if @defaultBGM
       bgm_play_internal2("Audio/BGM/" + @defaultBGM.name,
-                         @defaultBGM.volume, @defaultBGM.pitch, @bgm_position)
+                         @defaultBGM.volume, @defaultBGM.pitch, @bgm_position, track)
     end
     Graphics.frame_reset
   end
@@ -98,16 +102,20 @@ class Game_System
     end
   end
 
-  def bgm_stop # :nodoc:
-    @bgm_position = 0 if !@bgm_paused
-    @playing_bgm  = nil
-    Audio.bgm_stop if !@defaultBGM
+  def bgm_stop(track = nil) # :nodoc:
+    if !track || track == 0
+      @bgm_position = 0 if !@bgm_paused
+      @playing_bgm  = nil
+    end
+    Audio.bgm_stop(track) if !@defaultBGM
   end
 
-  def bgm_fade(time) # :nodoc:
-    @bgm_position = 0 if !@bgm_paused
-    @playing_bgm = nil
-    Audio.bgm_fade((time * 1000).floor) if !@defaultBGM
+  def bgm_fade(time, track = nil) # :nodoc:
+    if !track || track == 0
+      @bgm_position = 0 if !@bgm_paused
+      @playing_bgm = nil
+    end
+    Audio.bgm_fade((time * 1000).floor, track) if !@defaultBGM
   end
 
   def playing_bgm
@@ -257,17 +265,18 @@ class Game_System
   #-----------------------------------------------------------------------------
 
   def windowskin_name
-    if @windowskin_name.nil?
-      return $data_system.windowskin_name
-    else
-      return @windowskin_name
-    end
+    return $data_system.windowskin_name if @windowskin_name.nil?
+    return @windowskin_name
   end
 
   attr_writer :windowskin_name
 
+  def timer
+    return 0 if !@timer_start || !$stats
+    return @timer_duration - $stats.play_time + @timer_start
+  end
+
   def update
-    @timer -= 1 if @timer_working && @timer > 0
     if Input.trigger?(Input::SPECIAL) && pbCurrentEventCommentInput(1, "Cut Scene")
       event = @map_interpreter.get_self
       @map_interpreter.pbSetSelfSwitch(event.id, "A", true)

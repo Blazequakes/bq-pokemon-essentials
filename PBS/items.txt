@@ -2315,6 +2315,7 @@ Name = Charizardite X
 NamePlural = Charizardite Xs
 Pocket = 1
 Price = 0
+BPPrice = 50
 Flags = MegaStone,Fling_80
 Description = One of a variety of mysterious Mega Stones. Have Charizard hold it, and it will be able to Mega Evolve.
 #-------------------------------

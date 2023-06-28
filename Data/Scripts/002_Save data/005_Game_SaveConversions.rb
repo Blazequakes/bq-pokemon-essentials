@@ -289,7 +289,7 @@ SaveData.register_conversion(:v20_add_stats) do
   to_all do |save_data|
     unless save_data.has_key?(:stats)
       save_data[:stats] = GameStats.new
-      save_data[:stats].play_time = save_data[:frame_count].to_f / Graphics.frame_rate
+      save_data[:stats].play_time = (save_data[:frame_count] || 0).to_f / Graphics.frame_rate
       save_data[:stats].play_sessions = 1
       save_data[:stats].time_last_saved = save_data[:stats].play_time
     end
@@ -364,12 +364,9 @@ SaveData.register_conversion(:v21_replace_phone_data) do
           @phoneNumbers.each do |contact|
             if contact.length > 4
               # Trainer
-              # TODO: Is there any way to ensure the versions count (contact[5]
-              #       is the next version to be battled) is accurate?
               Phone.add_silent(contact[6], contact[7], contact[1], contact[2], contact[5], 0)
               new_contact = Phone.get(contact[1], contact[2], 0)
               new_contact.visible = contact[0]
-              new_contact.version = [contact[5] - 1, 0].max
               new_contact.rematch_flag = [contact[4] - 1, 0].max
             else
               # Non-trainer
@@ -379,6 +376,45 @@ SaveData.register_conversion(:v21_replace_phone_data) do
           @phoneNumbers = nil
         end
       end
+    end
+  end
+end
+
+#===============================================================================
+
+SaveData.register_conversion(:v21_replace_flute_booleans) do
+  essentials_version 21
+  display_title "Updating Black/White Flute variables"
+  to_value :map_metadata do |metadata|
+    metadata.instance_eval do
+      if !@blackFluteUsed.nil?
+        if Settings::FLUTES_CHANGE_WILD_ENCOUNTER_LEVELS
+          @higher_level_wild_pokemon = @blackFluteUsed
+        else
+          @lower_encounter_rate = @blackFluteUsed
+        end
+        @blackFluteUsed = nil
+      end
+      if !@whiteFluteUsed.nil?
+        if Settings::FLUTES_CHANGE_WILD_ENCOUNTER_LEVELS
+          @lower_level_wild_pokemon = @whiteFluteUsed
+        else
+          @higher_encounter_rate = @whiteFluteUsed
+        end
+        @whiteFluteUsed = nil
+      end
+    end
+  end
+end
+
+#===============================================================================
+
+SaveData.register_conversion(:v21_add_bump_stat) do
+  essentials_version 21
+  display_title "Adding a bump stat"
+  to_value :stats do |stats|
+    stats.instance_eval do
+      @bump_count = 0 if !@bump_count
     end
   end
 end

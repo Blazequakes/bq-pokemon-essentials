@@ -9,10 +9,6 @@ class Battle::AI
 
   def initialize(battle)
     @battle = battle
-
-    # TODO: Move this elsewhere?
-    @roles = [Array.new(@battle.pbParty(0).length) { |i| determine_roles(0, i) },
-              Array.new(@battle.pbParty(1).length) { |i| determine_roles(1, i) }]
   end
 
   def create_ai_objects
@@ -57,7 +53,9 @@ class Battle::AI
       PBDebug.log("")
       return
     end
-    if pbEnemyShouldUseItem?
+    ret = false
+    PBDebug.logonerr { ret = pbChooseToUseItem }
+    if ret
       PBDebug.log("")
       return
     end
@@ -93,6 +91,8 @@ module Battle::AI::Handlers
   GeneralMoveAgainstTargetScore = HandlerHash.new
   ShouldSwitch                  = HandlerHash.new
   ShouldNotSwitch               = HandlerHash.new
+  AbilityRanking                = AbilityHandlerHash.new
+  ItemRanking                   = ItemHandlerHash.new
 
   def self.move_will_fail?(function_code, *args)
     return MoveFailureCheck.trigger(function_code, *args) || false
@@ -149,5 +149,15 @@ module Battle::AI::Handlers
       break if ret
     end
     return ret
+  end
+
+  def self.modify_ability_ranking(ability, score, *args)
+    ret = AbilityRanking.trigger(ability, score, *args)
+    return (ret.nil?) ? score : ret
+  end
+
+  def self.modify_item_ranking(item, score, *args)
+    ret = ItemRanking.trigger(item, score, *args)
+    return (ret.nil?) ? score : ret
   end
 end

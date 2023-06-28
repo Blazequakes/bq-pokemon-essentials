@@ -285,7 +285,7 @@ class Battle::Move
     if (@battle.pbCheckGlobalAbility(:DARKAURA) && type == :DARK) ||
        (@battle.pbCheckGlobalAbility(:FAIRYAURA) && type == :FAIRY)
       if @battle.pbCheckGlobalAbility(:AURABREAK)
-        multipliers[:power_multiplier] *= 2 / 3.0
+        multipliers[:power_multiplier] *= 3 / 4.0
       else
         multipliers[:power_multiplier] *= 4 / 3.0
       end
@@ -416,7 +416,7 @@ class Battle::Move
         multipliers[:final_damage_multiplier] *= 1.5
       end
     when :Sandstorm
-      if target.pbHasType?(:ROCK) && specialMove? && @function != "UseTargetDefenseInsteadOfTargetSpDef"
+      if target.pbHasType?(:ROCK) && specialMove? && @function_code != "UseTargetDefenseInsteadOfTargetSpDef"
         multipliers[:defense_multiplier] *= 1.5
       end
     when :ShadowSky
@@ -489,7 +489,8 @@ class Battle::Move
   def pbAdditionalEffectChance(user, target, effectChance = 0)
     return 0 if target.hasActiveAbility?(:SHIELDDUST) && !@battle.moldBreaker
     ret = (effectChance > 0) ? effectChance : @addlEffect
-    if (Settings::MECHANICS_GENERATION >= 6 || @function != "EffectDependsOnEnvironment") &&
+    return ret if ret > 100
+    if (Settings::MECHANICS_GENERATION >= 6 || @function_code != "EffectDependsOnEnvironment") &&
        (user.hasActiveAbility?(:SERENEGRACE) || user.pbOwnSide.effects[PBEffects::Rainbow] > 0)
       ret *= 2
     end

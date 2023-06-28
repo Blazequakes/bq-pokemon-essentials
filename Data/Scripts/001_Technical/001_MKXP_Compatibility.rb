@@ -1,6 +1,6 @@
-# Using mkxp-z v2.4.0 - https://gitlab.com/mkxp-z/mkxp-z/-/releases/v2.4.0
+# Using mkxp-z v2.4.2/ee8dc7e - built 2023-05-28
+# https://github.com/mkxp-z/mkxp-z/actions/runs/5107184579
 $VERBOSE = nil
-begin; require 'zlib'; rescue; nil; end
 Font.default_shadow = false if Font.respond_to?(:default_shadow)
 Graphics.frame_rate = 40
 Encoding.default_internal = Encoding::UTF_8
@@ -25,12 +25,6 @@ class Bitmap
       height = text_size(text).height
       mkxp_draw_text(x, y, width, height, text, align)
     end
-  end
-end
-
-module Graphics
-  def self.delta_s
-    return self.delta.to_f / 1_000_000
   end
 end
 

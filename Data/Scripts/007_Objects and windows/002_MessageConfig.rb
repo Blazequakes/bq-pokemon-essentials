@@ -24,8 +24,7 @@ module MessageConfig
   # 2 = Pause cursor is displayed at lower middle side
   CURSOR_POSITION          = 1
   WINDOW_OPACITY           = 255
-  TEXT_SPEED               = nil   # can be positive to wait frames, or negative
-                                   # to show multiple characters in a single frame
+  TEXT_SPEED               = nil   # Time in seconds between two characters
   @@systemFrame     = nil
   @@defaultTextSkin = nil
   @@textSpeed       = nil
@@ -100,13 +99,16 @@ module MessageConfig
     @@textSpeed = value
   end
 
+  # Text speed is the delay in seconds between two adjacent characters being
+  # shown.
   def self.pbSettingToTextSpeed(speed)
     case speed
-    when 0 then return 2
-    when 1 then return 1
-    when 2 then return -2
+    when 0 then return 4 / 80.0   # Slow
+    when 1 then return 2 / 80.0   # Medium
+    when 2 then return 1 / 80.0   # Fast
+    when 3 then return 0          # Instant
     end
-    return TEXT_SPEED || 1
+    return TEXT_SPEED || 2 / 80.0   # Normal
   end
 
   #-----------------------------------------------------------------------------
@@ -555,16 +557,17 @@ end
 # Fades out the screen before a block is run and fades it back in after the
 # block exits.  z indicates the z-coordinate of the viewport used for this effect
 def pbFadeOutIn(z = 99999, nofadeout = false)
+  duration = 0.4   # In seconds
   col = Color.new(0, 0, 0, 0)
   viewport = Viewport.new(0, 0, Graphics.width, Graphics.height)
   viewport.z = z
-  numFrames = (Graphics.frame_rate * 0.4).floor
-  alphaDiff = (255.0 / numFrames).ceil
-  (0..numFrames).each do |j|
-    col.set(0, 0, 0, j * alphaDiff)
+  timer_start = System.uptime
+  loop do
+    col.set(0, 0, 0, lerp(0, 255, duration, timer_start, System.uptime))
     viewport.color = col
     Graphics.update
     Input.update
+    break if col.alpha == 255
   end
   pbPushFade
   begin
@@ -574,11 +577,13 @@ def pbFadeOutIn(z = 99999, nofadeout = false)
   ensure
     pbPopFade
     if !nofadeout
-      (0..numFrames).each do |j|
-        col.set(0, 0, 0, (numFrames - j) * alphaDiff)
+      timer_start = System.uptime
+      loop do
+        col.set(0, 0, 0, lerp(255, 0, duration, timer_start, System.uptime))
         viewport.color = col
         Graphics.update
         Input.update
+        break if col.alpha == 0
       end
     end
     viewport.dispose
@@ -586,17 +591,18 @@ def pbFadeOutIn(z = 99999, nofadeout = false)
 end
 
 def pbFadeOutInWithUpdate(z, sprites, nofadeout = false)
+  duration = 0.4   # In seconds
   col = Color.new(0, 0, 0, 0)
   viewport = Viewport.new(0, 0, Graphics.width, Graphics.height)
   viewport.z = z
-  numFrames = (Graphics.frame_rate * 0.4).floor
-  alphaDiff = (255.0 / numFrames).ceil
-  (0..numFrames).each do |j|
-    col.set(0, 0, 0, j * alphaDiff)
+  timer_start = System.uptime
+  loop do
+    col.set(0, 0, 0, lerp(0, 255, duration, timer_start, System.uptime))
     viewport.color = col
     pbUpdateSpriteHash(sprites)
     Graphics.update
     Input.update
+    break if col.alpha == 255
   end
   pbPushFade
   begin
@@ -604,12 +610,14 @@ def pbFadeOutInWithUpdate(z, sprites, nofadeout = false)
   ensure
     pbPopFade
     if !nofadeout
-      (0..numFrames).each do |j|
-        col.set(0, 0, 0, (numFrames - j) * alphaDiff)
+      timer_start = System.uptime
+      loop do
+        col.set(0, 0, 0, lerp(255, 0, duration, timer_start, System.uptime))
         viewport.color = col
         pbUpdateSpriteHash(sprites)
         Graphics.update
         Input.update
+        break if col.alpha == 0
       end
     end
     viewport.dispose
@@ -633,13 +641,16 @@ def pbFadeOutInWithMusic(zViewport = 99999)
 end
 
 def pbFadeOutAndHide(sprites)
+  duration = 0.4   # In seconds
+  col = Color.new(0, 0, 0, 0)
   visiblesprites = {}
-  numFrames = (Graphics.frame_rate * 0.4).floor
-  alphaDiff = (255.0 / numFrames).ceil
   pbDeactivateWindows(sprites) do
-    (0..numFrames).each do |j|
-      pbSetSpritesToColor(sprites, Color.new(0, 0, 0, j * alphaDiff))
+    timer_start = System.uptime
+    loop do
+      col.alpha = lerp(0, 255, duration, timer_start, System.uptime)
+      pbSetSpritesToColor(sprites, col)
       (block_given?) ? yield : pbUpdateSpriteHash(sprites)
+      break if col.alpha == 255
     end
   end
   sprites.each do |i|
@@ -652,6 +663,8 @@ def pbFadeOutAndHide(sprites)
 end
 
 def pbFadeInAndShow(sprites, visiblesprites = nil)
+  duration = 0.4   # In seconds
+  col = Color.new(0, 0, 0, 0)
   if visiblesprites
     visiblesprites.each do |i|
       if i[1] && sprites[i[0]] && !pbDisposed?(sprites[i[0]])
@@ -659,12 +672,13 @@ def pbFadeInAndShow(sprites, visiblesprites = nil)
       end
     end
   end
-  numFrames = (Graphics.frame_rate * 0.4).floor
-  alphaDiff = (255.0 / numFrames).ceil
   pbDeactivateWindows(sprites) do
-    (0..numFrames).each do |j|
-      pbSetSpritesToColor(sprites, Color.new(0, 0, 0, ((numFrames - j) * alphaDiff)))
+    timer_start = System.uptime
+    loop do
+      col.alpha = lerp(255, 0, duration, timer_start, System.uptime)
+      pbSetSpritesToColor(sprites, col)
       (block_given?) ? yield : pbUpdateSpriteHash(sprites)
+      break if col.alpha == 0
     end
   end
 end

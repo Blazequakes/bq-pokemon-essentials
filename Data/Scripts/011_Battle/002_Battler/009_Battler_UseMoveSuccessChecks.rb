@@ -43,23 +43,25 @@ class Battle::Battler
     # Choice Band/Gorilla Tactics
     @effects[PBEffects::ChoiceBand] = nil if !pbHasMove?(@effects[PBEffects::ChoiceBand])
     if @effects[PBEffects::ChoiceBand] && move.id != @effects[PBEffects::ChoiceBand]
-      choiced_move_name = GameData::Move.get(@effects[PBEffects::ChoiceBand]).name
-      if hasActiveItem?([:CHOICEBAND, :CHOICESPECS, :CHOICESCARF])
-        if showMessages
-          msg = _INTL("The {1} only allows the use of {2}!", itemName, choiced_move_name)
-          (commandPhase) ? @battle.pbDisplayPaused(msg) : @battle.pbDisplay(msg)
+      choiced_move = GameData::Move.try_get(@effects[PBEffects::ChoiceBand])
+      if choiced_move
+        if hasActiveItem?([:CHOICEBAND, :CHOICESPECS, :CHOICESCARF])
+          if showMessages
+            msg = _INTL("The {1} only allows the use of {2}!", itemName, choiced_move.name)
+            (commandPhase) ? @battle.pbDisplayPaused(msg) : @battle.pbDisplay(msg)
+          end
+          return false
+        elsif hasActiveAbility?(:GORILLATACTICS)
+          if showMessages
+            msg = _INTL("{1} can only use {2}!", pbThis, choiced_move.name)
+            (commandPhase) ? @battle.pbDisplayPaused(msg) : @battle.pbDisplay(msg)
+          end
+          return false
         end
-        return false
-      elsif hasActiveAbility?(:GORILLATACTICS)
-        if showMessages
-          msg = _INTL("{1} can only use {2}!", pbThis, choiced_move_name)
-          (commandPhase) ? @battle.pbDisplayPaused(msg) : @battle.pbDisplay(msg)
-        end
-        return false
       end
     end
     # Taunt
-    if @effects[PBEffects::Taunt] > 0 && move.statusMove?
+    if @effects[PBEffects::Taunt] > 0 && move.statusMove? && !specialUsage
       if showMessages
         msg = _INTL("{1} can't use {2} after the taunt!", pbThis, move.name)
         (commandPhase) ? @battle.pbDisplayPaused(msg) : @battle.pbDisplay(msg)
@@ -67,7 +69,7 @@ class Battle::Battler
       return false
     end
     # Torment
-    if @effects[PBEffects::Torment] && !@effects[PBEffects::Instructed] &&
+    if @effects[PBEffects::Torment] && !@effects[PBEffects::Instructed] && !specialUsage &&
        @lastMoveUsed && move.id == @lastMoveUsed && move.id != @battle.struggle.id
       if showMessages
         msg = _INTL("{1} can't use the same move twice in a row due to the torment!", pbThis)
@@ -85,7 +87,7 @@ class Battle::Battler
     end
     # Assault Vest (prevents choosing status moves but doesn't prevent
     # executing them)
-    if hasActiveItem?(:ASSAULTVEST) && move.statusMove? && move.id != :MEFIRST && commandPhase
+    if hasActiveItem?(:ASSAULTVEST) && move.statusMove? && move.function_code != "UseMoveTargetIsAboutToUse" && commandPhase
       if showMessages
         msg = _INTL("The effects of the {1} prevent status moves from being used!", itemName)
         (commandPhase) ? @battle.pbDisplayPaused(msg) : @battle.pbDisplay(msg)
@@ -306,7 +308,7 @@ class Battle::Battler
     return true if user.effects[PBEffects::TwoTurnAttack]
     # Move-specific failures
     if move.pbFailsAgainstTarget?(user, target, show_message)
-      PBDebug.log(sprintf("[Move failed] In function code %s's def pbFailsAgainstTarget?", move.function))
+      PBDebug.log(sprintf("[Move failed] In function code %s's def pbFailsAgainstTarget?", move.function_code))
       return false
     end
     # Immunity to priority moves because of Psychic Terrain
@@ -543,7 +545,7 @@ class Battle::Battler
     # Future Sight
     hitsInvul = true if @battle.futureSight
     # Helping Hand
-    hitsInvul = true if move.function == "PowerUpAllyMove"
+    hitsInvul = true if move.function_code == "PowerUpAllyMove"
     if !hitsInvul
       # Semi-invulnerable moves
       if target.effects[PBEffects::TwoTurnAttack]

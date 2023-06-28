@@ -65,6 +65,136 @@ MenuHandlers.add(:debug_menu, :variables, {
   }
 })
 
+MenuHandlers.add(:debug_menu, :safari_zone_and_bug_contest, {
+  "name"        => _INTL("Safari Zone and Bug-Catching Contest"),
+  "parent"      => :field_menu,
+  "description" => _INTL("Edit steps/time remaining and number of usable Poké Balls."),
+  "effect"      => proc {
+    if pbInSafari?
+      safari = pbSafariState
+      cmd = 0
+      loop do
+        cmds = [_INTL("Steps remaining: {1}", (Settings::SAFARI_STEPS > 0) ? safari.steps : _INTL("infinite")),
+                GameData::Item.get(:SAFARIBALL).name_plural + ": " + safari.ballcount.to_s]
+        cmd = pbShowCommands(nil, cmds, -1, cmd)
+        break if cmd < 0
+        case cmd
+        when 0   # Steps remaining
+          if Settings::SAFARI_STEPS > 0
+            params = ChooseNumberParams.new
+            params.setRange(0, 99999)
+            params.setDefaultValue(safari.steps)
+            safari.steps = pbMessageChooseNumber(_INTL("Set the steps remaining in this Safari game."), params)
+          end
+        when 1   # Safari Balls
+          params = ChooseNumberParams.new
+          params.setRange(0, 99999)
+          params.setDefaultValue(safari.ballcount)
+          safari.ballcount = pbMessageChooseNumber(
+            _INTL("Set the quantity of {1}.", GameData::Item.get(:SAFARIBALL).name_plural), params)
+        end
+      end
+    elsif pbInBugContest?
+      contest = pbBugContestState
+      cmd = 0
+      loop do
+        cmds = []
+        if Settings::BUG_CONTEST_TIME > 0
+          time_left = Settings::BUG_CONTEST_TIME - (System.uptime - contest.timer_start).to_i
+          time_left = 0 if time_left < 0
+          min = time_left / 60
+          sec = time_left % 60
+          time_string = _ISPRINTF("{1:02d}m {2:02d}s", min, sec)
+        else
+          time_string = _INTL("infinite")
+        end
+        cmds.push(_INTL("Time remaining: {1}", time_string))
+        cmds.push(GameData::Item.get(:SPORTBALL).name_plural + ": " + contest.ballcount.to_s)
+        cmd = pbShowCommands(nil, cmds, -1, cmd)
+        break if cmd < 0
+        case cmd
+        when 0   # Steps remaining
+          if Settings::BUG_CONTEST_TIME > 0
+            params = ChooseNumberParams.new
+            params.setRange(0, 99999)
+            params.setDefaultValue(min)
+            new_time = pbMessageChooseNumber(_INTL("Set the time remaining (in minutes) in this Bug-Catching Contest."), params)
+            contest.timer_start += (new_time - min) * 60
+            $scene.spriteset.usersprites.each do |sprite|
+              next if !sprite.is_a?(TimerDisplay)
+              sprite.start_time = contest.timer_start
+              break
+            end
+          end
+        when 1   # Safari Balls
+          params = ChooseNumberParams.new
+          params.setRange(0, 99999)
+          params.setDefaultValue(contest.ballcount)
+          contest.ballcount = pbMessageChooseNumber(
+            _INTL("Set the quantity of {1}.", GameData::Item.get(:SPORTBALL).name_plural), params)
+        end
+      end
+    else
+      pbMessage(_INTL("You aren't in the Safari Zone or a Bug-Catching Contest!"))
+    end
+  }
+})
+
+MenuHandlers.add(:debug_menu, :edit_field_effects, {
+  "name"        => _INTL("Change Field Effects"),
+  "parent"      => :field_menu,
+  "description" => _INTL("Edit Repel steps, Strength and Flash usage, and Black/White Flute effects."),
+  "effect"      => proc {
+    cmd = 0
+    loop do
+      cmds = []
+      cmds.push(_INTL("Repel steps: {1}", $PokemonGlobal.repel))
+      cmds.push(($PokemonMap.strengthUsed ? "[Y]" : "[  ]") + " " + _INTL("Strength used"))
+      cmds.push(($PokemonGlobal.flashUsed ? "[Y]" : "[  ]") + " " + _INTL("Flash used"))
+      cmds.push(($PokemonMap.lower_encounter_rate ? "[Y]" : "[  ]") + " " + _INTL("Lower encounter rate"))
+      cmds.push(($PokemonMap.higher_encounter_rate ? "[Y]" : "[  ]") + " " + _INTL("Higher encounter rate"))
+      cmds.push(($PokemonMap.lower_level_wild_pokemon ? "[Y]" : "[  ]") + " " + _INTL("Lower level wild Pokémon"))
+      cmds.push(($PokemonMap.higher_level_wild_pokemon ? "[Y]" : "[  ]") + " " + _INTL("Higher level wild Pokémon"))
+      cmd = pbShowCommands(nil, cmds, -1, cmd)
+      break if cmd < 0
+      case cmd
+      when 0   # Repel steps
+        params = ChooseNumberParams.new
+        params.setRange(0, 99999)
+        params.setDefaultValue($PokemonGlobal.repel)
+        $PokemonGlobal.repel = pbMessageChooseNumber(_INTL("Set the Pokémon's level."), params)
+      when 1   # Strength used
+        $PokemonMap.strengthUsed = !$PokemonMap.strengthUsed
+      when 2   # Flash used
+        if $game_map.metadata&.dark_map && $scene.is_a?(Scene_Map)
+          $PokemonGlobal.flashUsed = !$PokemonGlobal.flashUsed
+          darkness = $game_temp.darkness_sprite
+          darkness.dispose if darkness && !darkness.disposed?
+          $game_temp.darkness_sprite = DarknessSprite.new
+          $scene.spriteset&.addUserSprite($game_temp.darkness_sprite)
+          if $PokemonGlobal.flashUsed
+            $game_temp.darkness_sprite.radius = $game_temp.darkness_sprite.radiusMax
+          end
+        else
+          pbMessage(_INTL("You're not in a dark map!"))
+        end
+      when 3   # Lower encounter rate
+        $PokemonMap.lower_encounter_rate ||= false
+        $PokemonMap.lower_encounter_rate = !$PokemonMap.lower_encounter_rate
+      when 4   # Higher encounter rate
+        $PokemonMap.higher_encounter_rate ||= false
+        $PokemonMap.higher_encounter_rate = !$PokemonMap.higher_encounter_rate
+      when 5   # Lower level wild Pokémon
+        $PokemonMap.lower_level_wild_pokemon ||= false
+        $PokemonMap.lower_level_wild_pokemon = !$PokemonMap.lower_level_wild_pokemon
+      when 6   # Higher level wild Pokémon
+        $PokemonMap.higher_level_wild_pokemon ||= false
+        $PokemonMap.higher_level_wild_pokemon = !$PokemonMap.higher_level_wild_pokemon
+      end
+    end
+  }
+})
+
 MenuHandlers.add(:debug_menu, :refresh_map, {
   "name"        => _INTL("Refresh Map"),
   "parent"      => :field_menu,
@@ -84,24 +214,6 @@ MenuHandlers.add(:debug_menu, :day_care, {
   }
 })
 
-MenuHandlers.add(:debug_menu, :relic_stone, {
-  "name"        => _INTL("Use Relic Stone"),
-  "parent"      => :field_menu,
-  "description" => _INTL("Shadow Pokémon. Choose a Pokémon to show to the Relic Stone for purification."),
-  "effect"      => proc {
-    pbRelicStone
-  }
-})
-
-MenuHandlers.add(:debug_menu, :purify_chamber, {
-  "name"        => _INTL("Use Purify Chamber"),
-  "parent"      => :field_menu,
-  "description" => _INTL("Shadow Pokémon. Open the Purify Chamber for purification."),
-  "effect"      => proc {
-    pbPurifyChamber
-  }
-})
-
 MenuHandlers.add(:debug_menu, :storage_wallpapers, {
   "name"        => _INTL("Toggle Storage Wallpapers"),
   "parent"      => :field_menu,
@@ -118,7 +230,7 @@ MenuHandlers.add(:debug_menu, :storage_wallpapers, {
         paperscmds.push(_INTL("Unlock all"))
         paperscmds.push(_INTL("Lock all"))
         (PokemonStorage::BASICWALLPAPERQTY...w.length).each do |i|
-          paperscmds.push(_INTL("{1} {2}", unlockarray[i] ? "[Y]" : "[  ]", w[i]))
+          paperscmds.push((unlockarray[i] ? "[Y]" : "[  ]") + " " + w[i])
         end
         paperscmd = pbShowCommands(nil, paperscmds, -1, paperscmd)
         break if paperscmd < 0
@@ -233,7 +345,10 @@ MenuHandlers.add(:debug_menu, :test_wild_battle_advanced, {
           params.setCancelValue(0)
           level = pbMessageChooseNumber(_INTL("Set the wild {1}'s level.",
                                               GameData::Species.get(species).name), params)
-          pkmn.push(pbGenerateWildPokemon(species, level)) if level > 0
+          if level > 0
+            pkmn.push(pbGenerateWildPokemon(species, level))
+            size0 = pkmn.length
+          end
         end
       else                                   # Edit a Pokémon
         if pbConfirmMessage(_INTL("Change this Pokémon?"))
@@ -242,6 +357,7 @@ MenuHandlers.add(:debug_menu, :test_wild_battle_advanced, {
           scr.pbEndScreen
         elsif pbConfirmMessage(_INTL("Delete this Pokémon?"))
           pkmn.delete_at(pkmnCmd)
+          size0 = [pkmn.length, 1].max
         end
       end
     end
@@ -338,6 +454,8 @@ MenuHandlers.add(:debug_menu, :test_trainer_battle_advanced, {
           tr = pbLoadTrainer(trainerdata[0], trainerdata[1], trainerdata[2])
           EventHandlers.trigger(:on_trainer_load, tr)
           trainers.push([0, tr])
+          size0 = trainers.length
+          size1 = trainers.length
         end
       else                                         # Edit a trainer
         if pbConfirmMessage(_INTL("Change this trainer?"))
@@ -350,6 +468,8 @@ MenuHandlers.add(:debug_menu, :test_trainer_battle_advanced, {
           end
         elsif pbConfirmMessage(_INTL("Delete this trainer?"))
           trainers.delete_at(trainerCmd)
+          size0 = [trainers.length, 1].max
+          size1 = [trainers.length, 1].max
         end
       end
     end
@@ -377,35 +497,6 @@ MenuHandlers.add(:debug_menu, :roamers, {
   "description" => _INTL("Toggle and edit all roaming Pokémon."),
   "effect"      => proc {
     pbDebugRoamers
-  }
-})
-
-MenuHandlers.add(:debug_menu, :toggle_rematches_possible, {
-  "name"        => _INTL("Toggle Phone Rematches Possible"),
-  "parent"      => :battle_menu,
-  "description" => _INTL("Toggles whether trainers in the phone can be rebattled."),
-  "effect"      => proc {
-    Phone.rematches_enabled = !Phone.rematches_enabled
-    pbMessage(_INTL("Trainers in the phone can now be rebattled.")) if Phone.rematches_enabled
-    pbMessage(_INTL("Trainers in the phone cannot be rebattled.")) if !Phone.rematches_enabled
-  }
-})
-
-MenuHandlers.add(:debug_menu, :ready_rematches, {
-  "name"        => _INTL("Ready All Phone Rematches"),
-  "parent"      => :battle_menu,
-  "description" => _INTL("Make all trainers in the phone ready for rematches."),
-  "effect"      => proc {
-    if !$PokemonGlobal.phone || $PokemonGlobal.phone.contacts.length == 0
-      pbMessage(_INTL("There are no trainers in the Phone."))
-    else
-      $PokemonGlobal.phone.contacts.each do |contact|
-        next if !contact.trainer?
-        contact.rematch_flag = 1
-        contact.set_trainer_event_ready_for_rematch
-      end
-      pbMessage(_INTL("All trainers in the Phone are now ready to rebattle."))
-    end
   }
 })
 
@@ -625,6 +716,56 @@ MenuHandlers.add(:debug_menu, :open_storage, {
 })
 
 #===============================================================================
+# Shadow Pokémon options
+#===============================================================================
+MenuHandlers.add(:debug_menu, :shadow_pokemon_menu, {
+  "name"        => _INTL("Shadow Pokémon Options..."),
+  "parent"      => :pokemon_menu,
+  "description" => _INTL("Snag Machine and purification."),
+  "always_show" => false
+})
+
+MenuHandlers.add(:debug_menu, :toggle_snag_machine, {
+  "name"        => _INTL("Toggle Snag Machine"),
+  "parent"      => :shadow_pokemon_menu,
+  "description" => _INTL("Toggle all Poké Balls being able to catch Shadow Pokémon."),
+  "effect"      => proc {
+    $player.has_snag_machine = !$player.has_snag_machine
+    pbMessage(_INTL("Gave the Snag Machine.")) if $player.has_snag_machine
+    pbMessage(_INTL("Lost the Snag Machine.")) if !$player.has_snag_machine
+  }
+})
+
+MenuHandlers.add(:debug_menu, :toggle_purify_chamber_access, {
+  "name"        => _INTL("Toggle Purify Chamber Access"),
+  "parent"      => :shadow_pokemon_menu,
+  "description" => _INTL("Toggle access to the Purify Chamber via the PC."),
+  "effect"      => proc {
+    $player.seen_purify_chamber = !$player.seen_purify_chamber
+    pbMessage(_INTL("The Purify Chamber is accessible.")) if $player.seen_purify_chamber
+    pbMessage(_INTL("The Purify Chamber is not accessible.")) if !$player.seen_purify_chamber
+  }
+})
+
+MenuHandlers.add(:debug_menu, :purify_chamber, {
+  "name"        => _INTL("Use Purify Chamber"),
+  "parent"      => :shadow_pokemon_menu,
+  "description" => _INTL("Open the Purify Chamber for Shadow Pokémon purification."),
+  "effect"      => proc {
+    pbPurifyChamber
+  }
+})
+
+MenuHandlers.add(:debug_menu, :relic_stone, {
+  "name"        => _INTL("Use Relic Stone"),
+  "parent"      => :shadow_pokemon_menu,
+  "description" => _INTL("Choose a Shadow Pokémon to show to the Relic Stone for purification."),
+  "effect"      => proc {
+    pbRelicStone
+  }
+})
+
+#===============================================================================
 # Item options
 #===============================================================================
 MenuHandlers.add(:debug_menu, :items_menu, {
@@ -708,39 +849,34 @@ MenuHandlers.add(:debug_menu, :player_menu, {
 MenuHandlers.add(:debug_menu, :set_money, {
   "name"        => _INTL("Set Money"),
   "parent"      => :player_menu,
-  "description" => _INTL("Edit how much money you have."),
+  "description" => _INTL("Edit how much money, Game Corner Coins and Battle Points you have."),
   "effect"      => proc {
-    params = ChooseNumberParams.new
-    params.setRange(0, Settings::MAX_MONEY)
-    params.setDefaultValue($player.money)
-    $player.money = pbMessageChooseNumber(_INTL("Set the player's money."), params)
-    pbMessage(_INTL("You now have ${1}.", $player.money.to_s_formatted))
-  }
-})
+    cmd = 0
+    loop do
+      cmds = [_INTL("Money: ${1}", $player.money.to_s_formatted),
+              _INTL("Coins: {1}", $player.coins.to_s_formatted),
+              _INTL("Battle Points: {1}", $player.battle_points.to_s_formatted)]
+      cmd = pbShowCommands(nil, cmds, -1, cmd)
+      break if cmd < 0
+      case cmd
+      when 0   # Money
+        params = ChooseNumberParams.new
+        params.setRange(0, Settings::MAX_MONEY)
+        params.setDefaultValue($player.money)
+        $player.money = pbMessageChooseNumber("\\ts[]" + _INTL("Set the player's money."), params)
+      when 1   # Coins
+        params = ChooseNumberParams.new
+        params.setRange(0, Settings::MAX_COINS)
+        params.setDefaultValue($player.coins)
+        $player.coins = pbMessageChooseNumber("\\ts[]" + _INTL("Set the player's Coin amount."), params)
+      when 2   # Battle Points
+        params = ChooseNumberParams.new
+        params.setRange(0, Settings::MAX_BATTLE_POINTS)
+        params.setDefaultValue($player.battle_points)
+        $player.battle_points = pbMessageChooseNumber("\\ts[]" + _INTL("Set the player's BP amount."), params)
+      end
 
-MenuHandlers.add(:debug_menu, :set_coins, {
-  "name"        => _INTL("Set Coins"),
-  "parent"      => :player_menu,
-  "description" => _INTL("Edit how many Game Corner Coins you have."),
-  "effect"      => proc {
-    params = ChooseNumberParams.new
-    params.setRange(0, Settings::MAX_COINS)
-    params.setDefaultValue($player.coins)
-    $player.coins = pbMessageChooseNumber(_INTL("Set the player's Coin amount."), params)
-    pbMessage(_INTL("You now have {1} Coins.", $player.coins.to_s_formatted))
-  }
-})
-
-MenuHandlers.add(:debug_menu, :set_bp, {
-  "name"        => _INTL("Set Battle Points"),
-  "parent"      => :player_menu,
-  "description" => _INTL("Edit how many Battle Points you have."),
-  "effect"      => proc {
-    params = ChooseNumberParams.new
-    params.setRange(0, Settings::MAX_BATTLE_POINTS)
-    params.setDefaultValue($player.battle_points)
-    $player.battle_points = pbMessageChooseNumber(_INTL("Set the player's BP amount."), params)
-    pbMessage(_INTL("You now have {1} BP.", $player.battle_points.to_s_formatted))
+    end
   }
 })
 
@@ -755,7 +891,7 @@ MenuHandlers.add(:debug_menu, :set_badges, {
       badgecmds.push(_INTL("Give all"))
       badgecmds.push(_INTL("Remove all"))
       24.times do |i|
-        badgecmds.push(_INTL("{1} Badge {2}", $player.badges[i] ? "[Y]" : "[  ]", i + 1))
+        badgecmds.push(($player.badges[i] ? "[Y]" : "[  ]") + " " + _INTL("Badge {1}", i + 1))
       end
       badgecmd = pbShowCommands(nil, badgecmds, -1, badgecmd)
       break if badgecmd < 0
@@ -795,7 +931,7 @@ MenuHandlers.add(:debug_menu, :toggle_pokedex, {
       dex_names.length.times do |i|
         name = (dex_names[i].is_a?(Array)) ? dex_names[i][0] : dex_names[i]
         unlocked = $player.pokedex.unlocked?(i)
-        dexescmds.push(_INTL("{1} {2}", unlocked ? "[Y]" : "[  ]", name))
+        dexescmds.push((unlocked ? "[Y]" : "[  ]") + " " + name)
       end
       dexescmd = pbShowCommands(nil, dexescmds, -1, dexescmd)
       break if dexescmd < 0
@@ -822,14 +958,119 @@ MenuHandlers.add(:debug_menu, :toggle_pokegear, {
   }
 })
 
+MenuHandlers.add(:debug_menu, :edit_phone_contacts, {
+  "name"        => _INTL("Edit Phone And Contacts"),
+  "parent"      => :player_menu,
+  "description" => _INTL("Edit properties of the phone and of contacts registered in it."),
+  "effect"      => proc {
+    if !$PokemonGlobal.phone
+      pbMessage(_INTL("The phone is not defined."))
+      next
+    end
+    cmd = 0
+    loop do
+      cmds = []
+      time = $PokemonGlobal.phone.time_to_next_call.to_i   # time is in seconds
+      min = time / 60
+      sec = time % 60
+      cmds.push(_INTL("Time until next call: {1}m {2}s", min, sec))
+      cmds.push((Phone.rematches_enabled ? "[Y]" : "[  ]") + " " + _INTL("Rematches possible"))
+      cmds.push(_INTL("Maximum rematch version : {1}", Phone.rematch_variant))
+      if $PokemonGlobal.phone.contacts.length > 0
+        cmds.push(_INTL("Make all contacts ready for a rematch"))
+        cmds.push(_INTL("Edit individual contacts: {1}", $PokemonGlobal.phone.contacts.length))
+      end
+      cmd = pbShowCommands(nil, cmds, -1, cmd)
+      break if cmd < 0
+      case cmd
+      when 0   # Time until next call
+        params = ChooseNumberParams.new
+        params.setRange(0, 99999)
+        params.setDefaultValue(min)
+        params.setCancelValue(-1)
+        new_time = pbMessageChooseNumber(_INTL("Set the time (in minutes) until the next phone call."), params)
+        $PokemonGlobal.phone.time_to_next_call = new_time * 60 if new_time >= 0
+      when 1   # Rematches possible
+        Phone.rematches_enabled = !Phone.rematches_enabled
+      when 2   # Maximum rematch version
+        params = ChooseNumberParams.new
+        params.setRange(0, 99)
+        params.setDefaultValue(Phone.rematch_variant)
+        new_version = pbMessageChooseNumber(_INTL("Set the maximum version number a trainer contact can reach."), params)
+        Phone.rematch_variant = new_version
+      when 3   # Make all contacts ready for a rematch
+        $PokemonGlobal.phone.contacts.each do |contact|
+          next if !contact.trainer?
+          contact.rematch_flag = 1
+          contact.set_trainer_event_ready_for_rematch
+        end
+        pbMessage(_INTL("All trainers in the phone are now ready to rebattle."))
+      when 4   # Edit individual contacts
+        contact_cmd = 0
+        loop do
+          contact_cmds = []
+          $PokemonGlobal.phone.contacts.each do |contact|
+            visible_string = (contact.visible?) ? "[Y]" : "[  ]"
+            if contact.trainer?
+              battle_string = (contact.can_rematch?) ? "(can battle)" : ""
+              contact_cmds.push(sprintf("%s %s (%i) %s", visible_string, contact.display_name, contact.variant, battle_string))
+            else
+              contact_cmds.push(sprintf("%s %s", visible_string, contact.display_name))
+            end
+          end
+          contact_cmd = pbShowCommands(nil, contact_cmds, -1, contact_cmd)
+          break if contact_cmd < 0
+          contact = $PokemonGlobal.phone.contacts[contact_cmd]
+          edit_cmd = 0
+          loop do
+            edit_cmds = []
+            edit_cmds.push((contact.visible? ? "[Y]" : "[  ]") + " " + _INTL("Contact visible"))
+            if contact.trainer?
+              edit_cmds.push((contact.can_rematch? ? "[Y]" : "[  ]") + " " + _INTL("Can battle"))
+              ready_time = contact.time_to_ready   # time is in seconds
+              ready_min = ready_time / 60
+              ready_sec = ready_time % 60
+              edit_cmds.push(_INTL("Time until ready to battle: {1}m {2}s", ready_min, ready_sec))
+              edit_cmds.push(_INTL("Last defeated version: {1}", contact.variant))
+            end
+            break if edit_cmds.length == 0
+            edit_cmd = pbShowCommands(nil, edit_cmds, -1, edit_cmd)
+            break if edit_cmd < 0
+            case edit_cmd
+            when 0   # Visibility
+              contact.visible = !contact.visible if contact.can_hide?
+            when 1   # Can battle
+              contact.rematch_flag = (contact.can_rematch?) ? 0 : 1
+              contact.time_to_ready = 0 if contact.can_rematch?
+            when 2   # Time until ready to battle
+              params = ChooseNumberParams.new
+              params.setRange(0, 99999)
+              params.setDefaultValue(ready_min)
+              params.setCancelValue(-1)
+              new_time = pbMessageChooseNumber(_INTL("Set the time (in minutes) until this trainer is ready to battle."), params)
+              contact.time_to_ready = new_time * 60 if new_time >= 0
+            when 3   # Last defeated version
+              params = ChooseNumberParams.new
+              params.setRange(0, 99)
+              params.setDefaultValue(contact.variant)
+              new_version = pbMessageChooseNumber(_INTL("Set the last defeated version number of this trainer."), params)
+              contact.version = contact.start_version + new_version
+            end
+          end
+        end
+      end
+    end
+  }
+})
+
 MenuHandlers.add(:debug_menu, :toggle_box_link, {
-  "name"        => _INTL("Toggle Pokémon Box Link's Effect"),
+  "name"        => _INTL("Toggle Party Screen Access To Storage"),
   "parent"      => :player_menu,
   "description" => _INTL("Toggle Box Link's effect of accessing Pokémon storage via the party screen."),
   "effect"      => proc {
     $player.has_box_link = !$player.has_box_link
-    pbMessage(_INTL("Enabled Pokémon Box Link's effect.")) if $player.has_box_link
-    pbMessage(_INTL("Disabled Pokémon Box Link's effect.")) if !$player.has_box_link
+    pbMessage(_INTL("Enabled access to storage from the party screen.")) if $player.has_box_link
+    pbMessage(_INTL("Disabled access to storage from the party screen.")) if !$player.has_box_link
   }
 })
 

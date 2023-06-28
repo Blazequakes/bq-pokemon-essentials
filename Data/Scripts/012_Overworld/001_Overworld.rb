@@ -4,7 +4,7 @@
 # Pokérus check
 EventHandlers.add(:on_frame_update, :pokerus_counter,
   proc {
-    next if !$player
+    next if !$player&.party.any? { |pkmn| pkmn.pokerusStage == 1 }
     last = $PokemonGlobal.pokerusTime
     next if !last
     now = pbGetTimeNow
@@ -28,7 +28,8 @@ end
 class Game_Temp
   attr_accessor :warned_low_battery
   attr_accessor :cue_bgm
-  attr_accessor :cue_bgm_frame_delay
+  attr_accessor :cue_bgm_timer_start
+  attr_accessor :cue_bgm_delay
 end
 
 def pbBatteryLow?
@@ -48,7 +49,6 @@ EventHandlers.add(:on_frame_update, :low_battery_warning,
     next if $game_temp.warned_low_battery || !pbBatteryLow?
     next if $game_temp.in_menu || $game_temp.in_battle || $game_player.move_route_forcing ||
             $game_temp.message_window_showing || pbMapInterpreterRunning?
-    next if pbGetTimeNow.sec != 0
     $game_temp.warned_low_battery = true
     pbMessage(_INTL("The game has detected that the battery is low. You should save soon to avoid losing your progress."))
   }
@@ -56,10 +56,9 @@ EventHandlers.add(:on_frame_update, :low_battery_warning,
 
 EventHandlers.add(:on_frame_update, :cue_bgm_after_delay,
   proc {
-    next if $game_temp.cue_bgm_frame_delay.nil?
-    $game_temp.cue_bgm_frame_delay -= 1
-    next if $game_temp.cue_bgm_frame_delay > 0
-    $game_temp.cue_bgm_frame_delay = nil
+    next if $game_temp.cue_bgm_delay.nil?
+    next if System.uptime - $game_temp.cue_bgm_timer_start < $game_temp.cue_bgm_delay
+    $game_temp.cue_bgm_delay = nil
     pbBGMPlay($game_temp.cue_bgm) if $game_system.getPlayingBGM.nil?
   }
 )
@@ -160,8 +159,9 @@ EventHandlers.add(:on_step_taken, :auto_move_player,
     next if !$scene.is_a?(Scene_Map)
     next if event != $game_player
     currentTag = $game_player.pbTerrainTag
-    if currentTag.waterfall_crest
-      pbDescendWaterfall
+    if currentTag.waterfall_crest || currentTag.waterfall ||
+       $PokemonGlobal.descending_waterfall || $PokemonGlobal.ascending_waterfall
+      pbTraverseWaterfall
     elsif currentTag.ice || $PokemonGlobal.ice_sliding
       pbSlideOnIce
     end
@@ -413,14 +413,15 @@ end
 #===============================================================================
 def pbCueBGM(bgm, seconds, volume = nil, pitch = nil)
   return if !bgm
-  bgm        = pbResolveAudioFile(bgm, volume, pitch)
+  bgm = pbResolveAudioFile(bgm, volume, pitch)
   playingBGM = $game_system.playing_bgm
   if !playingBGM || playingBGM.name != bgm.name || playingBGM.pitch != bgm.pitch
     pbBGMFade(seconds)
-    if !$game_temp.cue_bgm_frame_delay
-      $game_temp.cue_bgm_frame_delay = (seconds * Graphics.frame_rate) * 3 / 5
-    end
     $game_temp.cue_bgm = bgm
+    if !$game_temp.cue_bgm_delay
+      $game_temp.cue_bgm_delay = seconds * 0.6
+      $game_temp.cue_bgm_timer_start = System.uptime
+    end
   elsif playingBGM
     pbBGMPlay(bgm)
   end
@@ -533,8 +534,11 @@ def pbMoveRoute(event, commands, waitComplete = false)
   return route
 end
 
-def pbWait(numFrames)
-  numFrames.times do
+# duration is in seconds
+def pbWait(duration)
+  timer_start = System.uptime
+  until System.uptime - timer_start >= duration
+    yield System.uptime - timer_start if block_given?
     Graphics.update
     Input.update
     pbUpdateSceneMap
@@ -545,11 +549,13 @@ end
 # Player/event movement in the field
 #===============================================================================
 def pbSlideOnIce
-  if $game_player.pbTerrainTag.ice && $game_player.can_move_in_direction?($game_player.direction)
-    $PokemonGlobal.ice_sliding = true
-    $game_player.straighten
-    $game_player.walk_anime = false
-    return
+  if !$DEBUG || !Input.press?(Input::CTRL)
+    if $game_player.pbTerrainTag.ice && $game_player.can_move_in_direction?($game_player.direction)
+      $PokemonGlobal.ice_sliding = true
+      $game_player.straighten
+      $game_player.walk_anime = false
+      return
+    end
   end
   $PokemonGlobal.ice_sliding = false
   $game_player.walk_anime = true

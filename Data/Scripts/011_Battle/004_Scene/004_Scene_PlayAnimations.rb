@@ -225,8 +225,8 @@ class Battle::Scene
     elsif battler.hp < oldHP
       pbCommonAnimation("HealthDown", battler) if showAnim && @battle.showAnims
     end
-    @sprites["dataBox_#{battler.index}"].animateHP(oldHP, battler.hp, battler.totalhp)
-    while @sprites["dataBox_#{battler.index}"].animatingHP
+    @sprites["dataBox_#{battler.index}"].animate_hp(oldHP, battler.hp)
+    while @sprites["dataBox_#{battler.index}"].animating_hp?
       pbUpdate
     end
   end
@@ -253,7 +253,7 @@ class Battle::Scene
     targets.each do |t|
       anim = Animation::BattlerDamage.new(@sprites, @viewport, t[0].index, t[2])
       damageAnims.push(anim)
-      @sprites["dataBox_#{t[0].index}"].animateHP(t[1], t[0].hp, t[0].totalhp)
+      @sprites["dataBox_#{t[0].index}"].animate_hp(t[1], t[0].hp)
     end
     # Update loop
     loop do
@@ -261,7 +261,7 @@ class Battle::Scene
       pbUpdate
       allDone = true
       targets.each do |t|
-        next if !@sprites["dataBox_#{t[0].index}"].animatingHP
+        next if !@sprites["dataBox_#{t[0].index}"].animating_hp?
         allDone = false
         break
       end
@@ -286,8 +286,8 @@ class Battle::Scene
     endExpLevel   = tempExp2 - startExp
     expRange      = endExp - startExp
     dataBox = @sprites["dataBox_#{battler.index}"]
-    dataBox.animateExp(startExpLevel, endExpLevel, expRange)
-    while dataBox.animatingExp
+    dataBox.animate_exp(startExpLevel, endExpLevel, expRange)
+    while dataBox.animating_exp?
       pbUpdate
     end
   end
@@ -297,12 +297,12 @@ class Battle::Scene
   #=============================================================================
   def pbLevelUp(pkmn, _battler, oldTotalHP, oldAttack, oldDefense, oldSpAtk, oldSpDef, oldSpeed)
     pbTopRightWindow(
-      _INTL("Max. HP<r>+{1}\r\nAttack<r>+{2}\r\nDefense<r>+{3}\r\nSp. Atk<r>+{4}\r\nSp. Def<r>+{5}\r\nSpeed<r>+{6}",
+      _INTL("Max. HP<r>+{1}\nAttack<r>+{2}\nDefense<r>+{3}\nSp. Atk<r>+{4}\nSp. Def<r>+{5}\nSpeed<r>+{6}",
             pkmn.totalhp - oldTotalHP, pkmn.attack - oldAttack, pkmn.defense - oldDefense,
             pkmn.spatk - oldSpAtk, pkmn.spdef - oldSpDef, pkmn.speed - oldSpeed)
     )
     pbTopRightWindow(
-      _INTL("Max. HP<r>{1}\r\nAttack<r>{2}\r\nDefense<r>{3}\r\nSp. Atk<r>{4}\r\nSp. Def<r>{5}\r\nSpeed<r>{6}",
+      _INTL("Max. HP<r>{1}\nAttack<r>{2}\nDefense<r>{3}\nSp. Atk<r>{4}\nSp. Def<r>{5}\nSpeed<r>{6}",
             pkmn.totalhp, pkmn.attack, pkmn.defense, pkmn.spatk, pkmn.spdef, pkmn.speed)
     )
   end
@@ -345,11 +345,10 @@ class Battle::Scene
     return if @battle.opponent
     @briefMessage = false
     pbMEPlay(pbGetWildCaptureME)
-    timer = 0.0
+    timer_start = System.uptime
     loop do
       pbUpdate
-      timer += Graphics.delta_s
-      break if timer >= 3.5
+      break if System.uptime - timer_start >= 3.5
     end
     pbMEStop
   end
@@ -361,9 +360,10 @@ class Battle::Scene
     return if !ball
     # Data box disappear animation
     dataBoxAnim = Animation::DataBoxDisappear.new(@sprites, @viewport, idxBattler)
+    timer_start = System.uptime
     loop do
       dataBoxAnim.update
-      ball.opacity -= 12 * 20 / Graphics.frame_rate if ball.opacity > 0
+      ball.opacity = lerp(255, 0, 1.0, timer_start, System.uptime)
       pbUpdate
       break if dataBoxAnim.animDone? && ball.opacity <= 0
     end
@@ -410,7 +410,7 @@ class Battle::Scene
   # Returns the animation ID to use for a given move/user. Returns nil if that
   # move has no animations defined for it.
   def pbFindMoveAnimDetails(move2anim, moveID, idxUser, hitNum = 0)
-    real_move_id = GameData::Move.get(moveID).id
+    real_move_id = GameData::Move.try_get(moveID)&.id || moveID
     noFlip = false
     if (idxUser & 1) == 0   # On player's side
       anim = move2anim[0][real_move_id]

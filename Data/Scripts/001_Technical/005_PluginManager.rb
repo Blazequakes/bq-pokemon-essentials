@@ -395,8 +395,8 @@ module PluginManager
     # output message
     print("#{message}\r\nThis exception was logged in #{errorlogline}.\r\nHold Ctrl when closing this message to copy it to the clipboard.")
     # Give a ~500ms coyote time to start holding Control
-    t = System.delta
-    until (System.delta - t) >= 500_000
+    t = System.uptime
+    until System.uptime - t >= 0.5
       Input.update
       if Input.press?(Input::CTRL)
         Input.clipboard = message
@@ -413,7 +413,7 @@ module PluginManager
     Compiler.pbCompilerEachPreppedLine(filename) do |line, line_no|
       # split line up into property name and values
       if !line[/^\s*(\w+)\s*=\s*(.*)$/]
-        raise _INTL("Bad line syntax (expected syntax like XXX=YYY)\r\n{1}", FileLineData.linereport)
+        raise _INTL("Bad line syntax (expected syntax like XXX=YYY)\n{1}", FileLineData.linereport)
       end
       property = $~[1].upcase
       data = $~[2].split(",")
@@ -471,7 +471,7 @@ module PluginManager
 
   # Get a list of all the plugin directories to inspect
   def self.listAll
-    return [] if !$DEBUG || safeExists?("Game.rgssad") || !Dir.safe?("Plugins")
+    return [] if !$DEBUG || FileTest.exist?("Game.rgssad") || !Dir.safe?("Plugins")
     # get a list of all directories in the `Plugins/` folder
     dirs = []
     Dir.get("Plugins").each { |d| dirs.push(d) if Dir.safe?(d) }
@@ -534,7 +534,7 @@ module PluginManager
     # plugins.
     self.listAll.each do |dir|
       # skip if there is no meta file
-      next if !safeExists?(dir + "/meta.txt")
+      next if !FileTest.exist?(dir + "/meta.txt")
       ndx = order.length
       meta = self.readMeta(dir, "meta.txt")
       meta[:dir] = dir
@@ -556,8 +556,8 @@ module PluginManager
   # Check if plugins need compiling
   def self.needCompiling?(order, plugins)
     # fixed actions
-    return false if !$DEBUG || safeExists?("Game.rgssad")
-    return true if !safeExists?("Data/PluginScripts.rxdata")
+    return false if !$DEBUG || FileTest.exist?("Game.rgssad")
+    return true if !FileTest.exist?("Data/PluginScripts.rxdata")
     Input.update
     return true if Input.press?(Input::SHIFT) || Input.press?(Input::CTRL)
     # analyze whether or not to push recompile
@@ -655,7 +655,7 @@ module PluginManager
     # go through the plugins folder
     Dir.get("Plugins").each do |dir|
       next if !Dir.safe?(dir)
-      next if !safeExists?(dir + "/meta.txt")
+      next if !FileTest.exist?(dir + "/meta.txt")
       # read meta
       meta = self.readMeta(dir, "meta.txt")
       return dir if meta[:name] == name

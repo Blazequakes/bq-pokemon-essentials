@@ -96,7 +96,7 @@ class Window_BattlePointShop < Window_DrawableCommand
     @stock       = stock
     @adapter     = adapter
     super(x, y, width, height, viewport)
-    @selarrow    = AnimatedBitmap.new("Graphics/Pictures/martSel")
+    @selarrow    = AnimatedBitmap.new("Graphics/UI/Mart/cursor")
     @baseColor   = Color.new(88, 88, 80)
     @shadowColor = Color.new(168, 184, 184)
     self.windowskin = nil
@@ -151,7 +151,7 @@ class BattlePointShop_Scene
       @sprites["qtywindow"].y       = Graphics.height - 102 - @sprites["qtywindow"].height
       itemwindow.refresh
     end
-    @sprites["battlepointwindow"].text = _INTL("Battle Points:\r\n<r>{1}", @adapter.getBPString)
+    @sprites["battlepointwindow"].text = _INTL("Battle Points:\n<r>{1}", @adapter.getBPString)
   end
 
   def pbStartScene(stock, adapter)
@@ -163,7 +163,7 @@ class BattlePointShop_Scene
     @adapter = adapter
     @sprites = {}
     @sprites["background"] = IconSprite.new(0, 0, @viewport)
-    @sprites["background"].setBitmap("Graphics/Pictures/martScreen")
+    @sprites["background"].setBitmap("Graphics/UI/Mart/bg")
     @sprites["icon"] = ItemIconSprite.new(36, Graphics.height - 50, nil, @viewport)
     winAdapter = BattlePointShopAdapter.new
     @sprites["itemwindow"] = Window_BattlePointShop.new(
@@ -248,21 +248,25 @@ class BattlePointShop_Scene
     cw.text = msg
     pbBottomLeftLines(cw, 2)
     cw.visible = true
-    i = 0
     pbPlayDecisionSE
+    refreshed_after_busy = false
+    timer_start = System.uptime
     loop do
       Graphics.update
       Input.update
       self.update
       if !cw.busy?
         return if brief
-        pbRefresh if i == 0
+        if !refreshed_after_busy
+          pbRefresh
+          timer_start = System.uptime
+          refreshed_after_busy = true
+        end
       end
       if Input.trigger?(Input::USE) || Input.trigger?(Input::BACK)
         cw.resume if cw.busy?
       end
-      return if i >= Graphics.frame_rate * 3 / 2
-      i += 1 if !cw.busy?
+      return if refreshed_after_busy && System.uptime - timer_start >= 1.5
     end
   end
 
@@ -484,8 +488,7 @@ class BattlePointShopScreen
       end
       if added == quantity
         $stats.battle_points_spent += price
-        # TODO: Add bpshop_items_bought to $stats?
-#        $stats.bpshop_items_bought += quantity
+        $stats.mart_items_bought += quantity
         @adapter.setBP(@adapter.getBP - price)
         @stock.delete_if { |itm| GameData::Item.get(itm).is_important? && $bag.has?(itm) }
         pbDisplayPaused(_INTL("Here you are! Thank you!")) { pbSEPlay("Mart buy item") }
