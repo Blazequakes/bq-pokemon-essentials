@@ -1105,7 +1105,7 @@ Accuracy = 0
 TotalPP = 5
 Target = User
 FunctionCode = RaiseUserMainStats1LoseThirdOfTotalHP
-Flags = Sound,CannotMetronome
+Flags = Sound,CannotMetronome,Dance
 Description = The user raises all its stats by using some of its HP.
 #-------------------------------
 [DRAGONDANCE]
@@ -2713,6 +2713,7 @@ TotalPP = 5
 Target = AllNearFoes
 FunctionCode = BurnTargetIfTargetStatsRaisedThisTurn
 Flags = CanProtect,CanMirrorMove
+EffectChance = 100
 Description = The user attacks with energy from jealousy. This burns all foes that had their stats boosted this turn.
 #-------------------------------
 [FLAMEBURST]
@@ -2906,6 +2907,7 @@ Power = 100
 Accuracy = 100
 TotalPP = 15
 Target = NearOther
+Priority = -3
 FunctionCode = BurnAttackerBeforeUserActs
 Flags = CanProtect,Bomb
 Description = The user heats up its beak before attacking. Making contact in this time results in a burn.
@@ -3610,7 +3612,7 @@ Power = 80
 Accuracy = 100
 TotalPP = 10
 Target = NearOther
-FunctionCode = LowerTargetDefense1DoublePowerInGravity
+FunctionCode = LowerTargetDefense1PowersUpInGravity
 Flags = CanProtect,CanMirrorMove,CannotMetronome
 EffectChance = 100
 Description = The user inflicts damage by dropping an apple from high above. This also lowers the target's Defense.
