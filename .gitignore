@@ -32,3 +32,5 @@ Thumbs.db
 # Temp files
 
 ~*
+PBS/map_connections.txt
+PBS/map_metadata.txt

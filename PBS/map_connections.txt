@@ -1,6 +1,14 @@
 ﻿# See the documentation on the wiki to learn how to edit this file.
 #-------------------------------
+# Route 1 (6) - Farm (2)
+6,West,2,2,East,0
 # Farm Woods (8) - Farm (2)
-8,S,0,2,N,0
+8,South,0,2,North,0
 # Farm Beach (9) - Farm (2)
-9,N,0,2,S,0
+9,North,0,2,South,0
+# Town 1 (7) - Route 1 (6)
+7,West,0,6,East,5
+# Farm Woods (8) - Route 1 (6)
+8,East,22,6,West,0
+# Farm Beach (9) - Route 1 (6)
+9,East,0,6,West,32
