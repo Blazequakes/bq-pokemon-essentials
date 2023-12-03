@@ -1,0 +1,64 @@
+﻿# See the documentation on the wiki to learn how to edit this file.
+#-------------------------------
+[Move,FLAMECHARGE]
+Name = FLAMECHARGE
+<User>
+    SetX = 0,128
+    SetY = 0,224
+<Target>
+    SetX = 0,384
+    SetY = 0,96
+<Particle 2>
+    Graphic = Flames
+    Focus = Target
+    SetX = 0,356
+    SetY = 0,113
+<Particle 3>
+    Graphic = Flames
+    Focus = Target
+    SetX = 0,371
+    SetY = 0,121
+<Particle 4>
+    Graphic = Flames
+    Focus = Target
+    SetX = 1,390
+    SetY = 1,124
+<Particle 5>
+    Graphic = Flames
+    Focus = Target
+    SetX = 2,408
+    SetY = 2,112
+<Particle 6>
+    Graphic = Flames
+    Focus = Target
+    SetX = 3,405
+    SetY = 3,90
+<Particle 7>
+    Graphic = Flames
+    Focus = Target
+    SetX = 4,393
+    SetY = 4,76
+<Particle 8>
+    Graphic = Flames
+    Focus = Target
+    SetX = 5,378
+    SetY = 5,73
+<Particle 9>
+    Graphic = Flames
+    Focus = Target
+    SetX = 6,360
+    SetY = 6,76
+<Particle 10>
+    Graphic = Flames
+    Focus = Target
+    SetX = 7,357
+    SetY = 7,95
+<Particle 11>
+    Graphic = Flames
+    Focus = Target
+    SetX = 8,382
+    SetY = 8,104
+    SetX = 9,381
+    SetY = 9,99
+<SE>
+    Play = 0,Work Up,100,116

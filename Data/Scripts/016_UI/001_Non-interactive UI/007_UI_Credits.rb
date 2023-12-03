@@ -88,7 +88,7 @@ class Scene_Credits
     ret.push("")
     ret.push(_INTL("\"mkxp-z\" by:"))
     add_names_to_credits(ret, [
-      "Roza",
+      "Anon",
       _INTL("Based on \"mkxp\" by Ancurio et al.")
     ])
     ret.push(_INTL("\"RPG Maker XP\" by:"))
@@ -227,7 +227,7 @@ class Scene_Credits
     end
     return if cancel?
     return if last?
-    @realOY = SCROLL_SPEED * (System.uptime - @timer_start) - Graphics.height + @trim
+    @realOY = (SCROLL_SPEED * (System.uptime - @timer_start)) - Graphics.height + @trim
     @credit_sprites.each_with_index { |s, i| s.oy = @realOY - (@bitmap_height * i) }
   end
 end

@@ -47,7 +47,8 @@ class Window_UnformattedTextPokemon < SpriteWindow_Base
     return ret
   end
 
-  def resizeToFitInternal(text, maxwidth)   # maxwidth is maximum acceptable window width
+  # maxwidth is maximum acceptable window width.
+  def resizeToFitInternal(text, maxwidth)
     dims = [0, 0]
     cwidth = maxwidth < 0 ? Graphics.width : maxwidth
     getLineBrokenChunks(self.contents, text,
@@ -60,14 +61,16 @@ class Window_UnformattedTextPokemon < SpriteWindow_Base
     self.text = text
   end
 
-  def resizeToFit(text, maxwidth = -1)   # maxwidth is maximum acceptable window width
+  # maxwidth is maximum acceptable window width.
+  def resizeToFit(text, maxwidth = -1)
     dims = resizeToFitInternal(text, maxwidth)
     self.width = dims[0] + self.borderX + SpriteWindow_Base::TEXT_PADDING
     self.height = dims[1] + self.borderY
     refresh
   end
 
-  def resizeHeightToFit(text, width = -1)   # width is current window width
+  # width is current window width.
+  def resizeHeightToFit(text, width = -1)
     dims = resizeToFitInternal(text, width)
     self.width  = (width < 0) ? Graphics.width : width
     self.height = dims[1] + self.borderY
@@ -403,19 +406,15 @@ class Window_AdvancedTextPokemon < SpriteWindow_Base
     return if !busy?
     return if @textchars[@curchar] == "\n"
     resume
-    visiblelines = (self.height - self.borderY) / @lineHeight
-    loop do
-      curcharSkip(true)
-      break if @curchar >= @fmtchars.length    # End of message
-      if @textchars[@curchar] == "\1"          # Pause message
+    if curcharSkip(true)
+      visiblelines = (self.height - self.borderY) / @lineHeight
+      if @textchars[@curchar] == "\n" && @linesdrawn >= visiblelines - 1
+        @scroll_timer_start = System.uptime
+      elsif @textchars[@curchar] == "\1"
         @pausing = true if @curchar < @numtextchars - 1
         self.startPause
         refresh
-        break
       end
-      break if @textchars[@curchar] != "\n"    # Skip past newlines only
-      break if @linesdrawn >= visiblelines - 1   # No more empty lines to continue to
-      @linesdrawn += 1
     end
   end
 
@@ -530,6 +529,7 @@ class Window_AdvancedTextPokemon < SpriteWindow_Base
     delta_t = time_now - @display_last_updated
     @display_last_updated = time_now
     visiblelines = (self.height - self.borderY) / @lineHeight
+    @lastchar = -1 if !@lastchar
     show_more_characters = false
     # Pauses and new lines
     if @textchars[@curchar] == "\1"   # Waiting
@@ -551,7 +551,7 @@ class Window_AdvancedTextPokemon < SpriteWindow_Base
           show_more_characters = true
         end
       else   # New line but the next line can be shown without scrolling to it
-        @linesdrawn += 1
+        @linesdrawn += 1 if @lastchar < @curchar
         show_more_characters = true
       end
     elsif @curchar <= @numtextchars   # Displaying more text
@@ -563,6 +563,7 @@ class Window_AdvancedTextPokemon < SpriteWindow_Base
       @scroll_timer_start = nil
       @linesdrawn = 0
     end
+    @lastchar = @curchar
     # Keep displaying more text
     if show_more_characters
       @display_timer += delta_t
@@ -585,6 +586,7 @@ class Window_AdvancedTextPokemon < SpriteWindow_Base
       if System.uptime - @wait_timer_start >= @waitcount
         @wait_timer_start = nil
         @waitcount = 0
+        @display_last_updated = nil
       end
       return if @wait_timer_start
     end
@@ -685,7 +687,7 @@ class Window_InputNumberPokemon < SpriteWindow_Base
   def update
     super
     digits = @digits_max + (@sign ? 1 : 0)
-    cursor_to_show = ((System.uptime - @cursor_timer_start) / 0.35).to_i % 2 == 0
+    cursor_to_show = ((System.uptime - @cursor_timer_start) / 0.35).to_i.even?
     if cursor_to_show != @cursor_shown
       @cursor_shown = cursor_to_show
       refresh
@@ -1128,11 +1130,13 @@ class Window_DrawableCommand < SpriteWindow_SelectableEx
     return Rect.new(rect.x + 16, rect.y, rect.width - 16, rect.height)
   end
 
-  def itemCount   # to be implemented by derived classes
+  # To be implemented by derived classes.
+  def itemCount
     return 0
   end
 
-  def drawItem(index, count, rect); end   # to be implemented by derived classes
+  # To be implemented by derived classes.
+  def drawItem(index, count, rect); end
 
   def refresh
     @item_max = itemCount

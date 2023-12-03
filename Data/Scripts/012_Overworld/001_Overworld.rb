@@ -4,7 +4,7 @@
 # Pokérus check
 EventHandlers.add(:on_frame_update, :pokerus_counter,
   proc {
-    next if !$player&.party.any? { |pkmn| pkmn.pokerusStage == 1 }
+    next if !$player || $player.party.none? { |pkmn| pkmn.pokerusStage == 1 }
     last = $PokemonGlobal.pokerusTime
     next if !last
     now = pbGetTimeNow
@@ -90,6 +90,7 @@ EventHandlers.add(:on_player_step_taken_can_transfer, :poison_party,
     $player.able_party.each do |pkmn|
       next if pkmn.status != :POISON || pkmn.hasAbility?(:IMMUNITY)
       if !flashed
+        pbSEPlay("Poison step")
         pbFlash(Color.new(255, 0, 0, 128), 8)
         flashed = true
       end
@@ -219,24 +220,7 @@ end
 #===============================================================================
 # Checks when moving between maps
 #===============================================================================
-# Clears the weather of the old map, if the old map has defined weather and the
-# new map either has the same name as the old map or doesn't have defined
-# weather.
-EventHandlers.add(:on_leave_map, :end_weather,
-  proc { |new_map_id, new_map|
-    next if new_map_id == 0
-    old_map_metadata = $game_map.metadata
-    next if !old_map_metadata || !old_map_metadata.weather
-    map_infos = pbLoadMapInfos
-    if $game_map.name == map_infos[new_map_id].name
-      new_map_metadata = GameData::MapMetadata.try_get(new_map_id)
-      next if new_map_metadata&.weather
-    end
-    $game_screen.weather(:None, 0, 0)
-  }
-)
-
-# Set up various data related to the new map
+# Set up various data related to the new map.
 EventHandlers.add(:on_enter_map, :setup_new_map,
   proc { |old_map_id|   # previous map ID, is 0 if no map ID
     # Record new Teleport destination
@@ -250,16 +234,21 @@ EventHandlers.add(:on_enter_map, :setup_new_map,
     $PokemonEncounters&.setup($game_map.map_id)
     # Record the new map as having been visited
     $PokemonGlobal.visitedMaps[$game_map.map_id] = true
-    # Set weather if new map has weather
+  }
+)
+
+# Changes the overworld weather.
+EventHandlers.add(:on_enter_map, :set_weather,
+  proc { |old_map_id|   # previous map ID, is 0 if no map ID
     next if old_map_id == 0 || old_map_id == $game_map.map_id
-    next if !new_map_metadata || !new_map_metadata.weather
-    map_infos = pbLoadMapInfos
-    if $game_map.name == map_infos[old_map_id].name
-      old_map_metadata = GameData::MapMetadata.try_get(old_map_id)
-      next if old_map_metadata&.weather
+    old_weather = $game_screen.weather_type
+    new_weather = :None
+    new_map_metadata = $game_map.metadata
+    if new_map_metadata&.weather
+      new_weather = new_map_metadata.weather[0] if rand(100) < new_map_metadata.weather[1]
     end
-    new_weather = new_map_metadata.weather
-    $game_screen.weather(new_weather[0], 9, 0) if rand(100) < new_weather[1]
+    next if old_weather == new_weather
+    $game_screen.weather(new_weather, 9, 0)
   }
 )
 
@@ -673,21 +662,21 @@ def pbItemBall(item, quantity = 1)
   if $bag.add(item, quantity)   # If item can be picked up
     meName = (item.is_key_item?) ? "Key item get" : "Item get"
     if item == :DNASPLICERS
-      pbMessage("\\me[#{meName}]" + _INTL("You found \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[30]")
+      pbMessage("\\me[#{meName}]" + _INTL("You found \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[40]")
     elsif item.is_machine?   # TM or HM
       if quantity > 1
-        pbMessage("\\me[#{meName}]" + _INTL("You found {1} \\c[1]{2} {3}\\c[0]!",
-                                            quantity, itemname, GameData::Move.get(move).name) + "\\wtnp[30]")
+        pbMessage("\\me[Machine get]" + _INTL("You found {1} \\c[1]{2} {3}\\c[0]!",
+                                              quantity, itemname, GameData::Move.get(move).name) + "\\wtnp[70]")
       else
-        pbMessage("\\me[#{meName}]" + _INTL("You found \\c[1]{1} {2}\\c[0]!",
-                                            itemname, GameData::Move.get(move).name) + "\\wtnp[30]")
+        pbMessage("\\me[Machine get]" + _INTL("You found \\c[1]{1} {2}\\c[0]!",
+                                              itemname, GameData::Move.get(move).name) + "\\wtnp[70]")
       end
     elsif quantity > 1
-      pbMessage("\\me[#{meName}]" + _INTL("You found {1} \\c[1]{2}\\c[0]!", quantity, itemname) + "\\wtnp[30]")
+      pbMessage("\\me[#{meName}]" + _INTL("You found {1} \\c[1]{2}\\c[0]!", quantity, itemname) + "\\wtnp[40]")
     elsif itemname.starts_with_vowel?
-      pbMessage("\\me[#{meName}]" + _INTL("You found an \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[30]")
+      pbMessage("\\me[#{meName}]" + _INTL("You found an \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[40]")
     else
-      pbMessage("\\me[#{meName}]" + _INTL("You found a \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[30]")
+      pbMessage("\\me[#{meName}]" + _INTL("You found a \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[40]")
     end
     pbMessage(_INTL("You put the {1} in\\nyour Bag's <icon=bagPocket{2}>\\c[1]{3}\\c[0] pocket.",
                     itemname, pocket, PokemonBag.pocket_names[pocket - 1]))
@@ -696,16 +685,16 @@ def pbItemBall(item, quantity = 1)
   # Can't add the item
   if item.is_machine?   # TM or HM
     if quantity > 1
-      pbMessage(_INTL("You found {1} \\c[1]{2} {3}\\c[0]!", quantity, itemname, GameData::Move.get(move).name) + "\\wtnp[30]")
+      pbMessage(_INTL("You found {1} \\c[1]{2} {3}\\c[0]!", quantity, itemname, GameData::Move.get(move).name))
     else
-      pbMessage(_INTL("You found \\c[1]{1} {2}\\c[0]!", itemname, GameData::Move.get(move).name) + "\\wtnp[30]")
+      pbMessage(_INTL("You found \\c[1]{1} {2}\\c[0]!", itemname, GameData::Move.get(move).name))
     end
   elsif quantity > 1
-    pbMessage(_INTL("You found {1} \\c[1]{2}\\c[0]!", quantity, itemname) + "\\wtnp[30]")
+    pbMessage(_INTL("You found {1} \\c[1]{2}\\c[0]!", quantity, itemname))
   elsif itemname.starts_with_vowel?
-    pbMessage(_INTL("You found an \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[30]")
+    pbMessage(_INTL("You found an \\c[1]{1}\\c[0]!", itemname))
   else
-    pbMessage(_INTL("You found a \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[30]")
+    pbMessage(_INTL("You found a \\c[1]{1}\\c[0]!", itemname))
   end
   pbMessage(_INTL("But your Bag is full..."))
   return false
@@ -722,21 +711,21 @@ def pbReceiveItem(item, quantity = 1)
   move = item.move
   meName = (item.is_key_item?) ? "Key item get" : "Item get"
   if item == :DNASPLICERS
-    pbMessage("\\me[#{meName}]" + _INTL("You obtained \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[30]")
+    pbMessage("\\me[#{meName}]" + _INTL("You obtained \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[40]")
   elsif item.is_machine?   # TM or HM
     if quantity > 1
-      pbMessage("\\me[#{meName}]" + _INTL("You obtained {1} \\c[1]{2} {3}\\c[0]!",
-                                          quantity, itemname, GameData::Move.get(move).name) + "\\wtnp[30]")
+      pbMessage("\\me[Machine get]" + _INTL("You obtained {1} \\c[1]{2} {3}\\c[0]!",
+                                            quantity, itemname, GameData::Move.get(move).name) + "\\wtnp[70]")
     else
-      pbMessage("\\me[#{meName}]" + _INTL("You obtained \\c[1]{1} {2}\\c[0]!",
-                                          itemname, GameData::Move.get(move).name) + "\\wtnp[30]")
+      pbMessage("\\me[Machine get]" + _INTL("You obtained \\c[1]{1} {2}\\c[0]!",
+                                            itemname, GameData::Move.get(move).name) + "\\wtnp[70]")
     end
   elsif quantity > 1
-    pbMessage("\\me[#{meName}]" + _INTL("You obtained {1} \\c[1]{2}\\c[0]!", quantity, itemname) + "\\wtnp[30]")
+    pbMessage("\\me[#{meName}]" + _INTL("You obtained {1} \\c[1]{2}\\c[0]!", quantity, itemname) + "\\wtnp[40]")
   elsif itemname.starts_with_vowel?
-    pbMessage("\\me[#{meName}]" + _INTL("You obtained an \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[30]")
+    pbMessage("\\me[#{meName}]" + _INTL("You obtained an \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[40]")
   else
-    pbMessage("\\me[#{meName}]" + _INTL("You obtained a \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[30]")
+    pbMessage("\\me[#{meName}]" + _INTL("You obtained a \\c[1]{1}\\c[0]!", itemname) + "\\wtnp[40]")
   end
   if $bag.add(item, quantity)   # If item can be added
     pbMessage(_INTL("You put the {1} in\\nyour Bag's <icon=bagPocket{2}>\\c[1]{3}\\c[0] pocket.",

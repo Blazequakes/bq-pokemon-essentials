@@ -103,7 +103,7 @@ def pbHiddenMoveAnimation(pokemon)
     when 1   # Expand viewport height from zero to full
       viewport.rect.y = lerp(Graphics.height / 2, (Graphics.height - bg.bitmap.height) / 2,
                              0.25, timer_start, System.uptime)
-      viewport.rect.height = Graphics.height - viewport.rect.y * 2
+      viewport.rect.height = Graphics.height - (viewport.rect.y * 2)
       bg.oy = (bg.bitmap.height - viewport.rect.height) / 2
       if viewport.rect.y == (Graphics.height - bg.bitmap.height) / 2
         phase = 2
@@ -134,7 +134,7 @@ def pbHiddenMoveAnimation(pokemon)
     when 5   # Shrink viewport height from full to zero
       viewport.rect.y = lerp((Graphics.height - bg.bitmap.height) / 2, Graphics.height / 2,
                              0.25, timer_start, System.uptime)
-      viewport.rect.height = Graphics.height - viewport.rect.y * 2
+      viewport.rect.height = Graphics.height - (viewport.rect.y * 2)
       bg.oy = (bg.bitmap.height - viewport.rect.height) / 2
       phase = 6 if viewport.rect.y == Graphics.height / 2
     end
@@ -213,9 +213,9 @@ HiddenMoveHandlers::UseMove.add(:CUT, proc { |move, pokemon|
 def pbSmashEvent(event)
   return if !event
   if event.name[/cuttree/i]
-    pbSEPlay("Cut", 80)
+    pbSEPlay("Cut")
   elsif event.name[/smashrock/i]
-    pbSEPlay("Rock Smash", 80)
+    pbSEPlay("Rock Smash")
   end
   pbMoveRoute(event, [PBMoveRoute::WAIT, 2,
                       PBMoveRoute::TURN_LEFT, PBMoveRoute::WAIT, 2,
@@ -487,7 +487,6 @@ def pbFlyToNewLocation(pkmn = nil, move = :FLY)
     $game_temp.player_new_x         = $game_temp.fly_destination[1]
     $game_temp.player_new_y         = $game_temp.fly_destination[2]
     $game_temp.player_new_direction = 2
-    $game_temp.fly_destination = nil
     pbDismountBike
     $scene.transfer_player
     $game_map.autoplay
@@ -496,6 +495,7 @@ def pbFlyToNewLocation(pkmn = nil, move = :FLY)
     pbWait(0.25)
   end
   pbEraseEscapePoint
+  $game_temp.fly_destination = nil
   return true
 end
 
@@ -516,6 +516,8 @@ HiddenMoveHandlers::UseMove.add(:FLY, proc { |move, pkmn|
 # Headbutt
 #===============================================================================
 def pbHeadbuttEffect(event = nil)
+  pbSEPlay("Headbutt")
+  pbWait(1.0)
   event = $game_player.pbFacingEvent(true) if !event
   a = (event.x + (event.x / 24).floor + 1) * (event.y + (event.y / 24).floor + 1)
   a = (a * 2 / 5) % 10   # Even 2x as likely as odd, 0 is 1.5x as likely as odd
@@ -797,8 +799,9 @@ def pbSweetScent
   viewport.color.green = 32
   viewport.color.blue  = 32
   viewport.color.alpha -= 10
+  pbSEPlay("Sweet Scent")
   start_alpha = viewport.color.alpha
-  duration = 1.1
+  duration = 2.0
   fade_time = 0.4
   pbWait(duration) do |delta_t|
     if delta_t < duration / 2
@@ -808,6 +811,7 @@ def pbSweetScent
     end
   end
   viewport.dispose
+  pbSEStop(0.5)
   enctype = $PokemonEncounters.encounter_type
   if !enctype || !$PokemonEncounters.encounter_possible_here? ||
      !pbEncounter(enctype, false)

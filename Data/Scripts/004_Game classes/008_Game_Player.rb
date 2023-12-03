@@ -313,16 +313,18 @@ class Game_Player < Game_Character
     return result
   end
 
-  def pbCheckEventTriggerAfterTurning; end
+  def check_event_trigger_after_turning; end
 
   def pbCheckEventTriggerFromDistance(triggers)
-    ret = pbTriggeredTrainerEvents(triggers)
-    ret.concat(pbTriggeredCounterEvents(triggers))
-    return false if ret.length == 0
-    ret.each do |event|
+    events = pbTriggeredTrainerEvents(triggers)
+    events.concat(pbTriggeredCounterEvents(triggers))
+    return false if events.length == 0
+    ret = false
+    events.each do |event|
       event.start
+      ret = true if event.starting
     end
-    return true
+    return ret
   end
 
   # Trigger event(s) at the same coordinates as self with the appropriate
@@ -339,7 +341,7 @@ class Game_Player < Game_Character
       # If starting determinant is same position event (other than jumping)
       next if event.jumping? || !event.over_trigger?
       event.start
-      result = true
+      result = true if event.starting
     end
     return result
   end
@@ -361,7 +363,7 @@ class Game_Player < Game_Character
       # If starting determinant is front event (other than jumping)
       next if event.jumping? || event.over_trigger?
       event.start
-      result = true
+      result = true if event.starting
     end
     # If fitting event is not found
     if result == false && $game_map.counter?(new_x, new_y)
@@ -377,7 +379,7 @@ class Game_Player < Game_Character
         # If starting determinant is front event (other than jumping)
         next if event.jumping? || event.over_trigger?
         event.start
-        result = true
+        result = true if event.starting
       end
     end
     return result
@@ -404,7 +406,7 @@ class Game_Player < Game_Character
       # If starting determinant is front event (other than jumping)
       next if event.jumping? || event.over_trigger?
       event.start
-      result = true
+      result = true if event.starting
     end
     return result
   end
@@ -419,7 +421,7 @@ class Game_Player < Game_Character
     update_stop if $game_temp.in_menu && @stopped_last_frame
     update_screen_position(last_real_x, last_real_y)
     # Update dependent events
-    if (!@moved_last_frame || @stopped_last_frame) && (moving? || jumping?)
+    if (!@moved_last_frame || @stopped_last_frame) && (moving? || jumping?) && !@bumping
       $game_temp.followers.move_followers
     end
     $game_temp.followers.update
@@ -601,7 +603,8 @@ def pbMountBike
   $stats.cycle_count += 1
   pbUpdateVehicle
   bike_bgm = GameData::Metadata.get.bicycle_BGM
-  pbCueBGM(bike_bgm, 0.5) if bike_bgm
+  pbCueBGM(bike_bgm, 0.4) if bike_bgm
+  pbSEPlay("Bicycle")
   pbPokeRadarCancel
 end
 

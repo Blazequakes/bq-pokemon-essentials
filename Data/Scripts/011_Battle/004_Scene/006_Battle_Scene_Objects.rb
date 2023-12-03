@@ -6,7 +6,7 @@ class Battle::Scene::PokemonDataBox < Sprite
   attr_accessor :selected
 
   # Time in seconds to fully fill the Exp bar (from empty).
-  EXP_BAR_FILL_TIME  = 1.75
+  EXP_BAR_FILL_TIME = 1.75
   # Time in seconds for this data box to flash when the Exp fully fills.
   EXP_FULL_FLASH_DURATION = 0.2
   # Maximum time in seconds to make a change to the HP bar.
@@ -203,12 +203,12 @@ class Battle::Scene::PokemonDataBox < Sprite
     return @anim_exp_timer_start != nil
   end
 
-  def pbDrawNumber(number, btmp, startX, startY, align = 0)
+  def pbDrawNumber(number, btmp, startX, startY, align = :left)
     # -1 means draw the / character
     n = (number == -1) ? [10] : number.to_i.digits.reverse
     charWidth  = @numbersBitmap.width / 11
     charHeight = @numbersBitmap.height
-    startX -= charWidth * n.length if align == 1
+    startX -= charWidth * n.length if align == :right
     n.each do |i|
       btmp.blt(startX, startY, @numbersBitmap.bitmap, Rect.new(i * charWidth, 0, charWidth, charHeight))
       startX += charWidth
@@ -303,7 +303,7 @@ class Battle::Scene::PokemonDataBox < Sprite
     return if !@battler.pokemon
     # Show HP numbers
     if @show_hp_numbers
-      pbDrawNumber(self.hp, @hpNumbers.bitmap, 54, 2, 1)
+      pbDrawNumber(self.hp, @hpNumbers.bitmap, 54, 2, :right)
       pbDrawNumber(-1, @hpNumbers.bitmap, 54, 2)   # / char
       pbDrawNumber(@battler.totalhp, @hpNumbers.bitmap, 70, 2)
     end
