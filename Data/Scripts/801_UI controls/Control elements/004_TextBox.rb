@@ -1,20 +1,18 @@
 #===============================================================================
-# TODO: Support selecting part of the text by remembering the initial
-#       cursor position and using it and the current cursor position to
-#       decide which characters are selected. Maybe? Note that this method
-#       is only triggered upon the initial mouse press, and isn't repeated
-#       while it's still held down.
+#
 #===============================================================================
 class UIControls::TextBox < UIControls::BaseControl
+  attr_accessor :box_width
+
   TEXT_BOX_X       = 2
   TEXT_BOX_WIDTH   = 200
   TEXT_BOX_HEIGHT  = 24
   TEXT_BOX_PADDING = 4   # Gap between sides of text box and text
-  TEXT_OFFSET_Y    = 5
 
   def initialize(width, height, viewport, value = "")
     super(width, height, viewport)
     @value        = value
+    @box_width    = TEXT_BOX_WIDTH
     @cursor_pos   = -1
     @display_pos  = 0
     @cursor_timer = nil
@@ -22,9 +20,15 @@ class UIControls::TextBox < UIControls::BaseControl
     @blacklist    = []
   end
 
+  #-----------------------------------------------------------------------------
+
+  def value
+    return @value.dup
+  end
+
   def value=(new_value)
-    return if @value == new_value
-    @value = new_value
+    return if @value.to_s == new_value.to_s
+    @value = new_value.to_s.dup
     invalidate
   end
 
@@ -37,6 +41,7 @@ class UIControls::TextBox < UIControls::BaseControl
   end
 
   def delete_at(index)
+    @value = @value.to_s
     @value.slice!(index)
     @cursor_pos -= 1 if @cursor_pos > index
     @cursor_timer = System.uptime
@@ -57,36 +62,6 @@ class UIControls::TextBox < UIControls::BaseControl
     invalidate
   end
 
-  def set_interactive_rects
-    @text_box_rect = Rect.new(TEXT_BOX_X, (height - TEXT_BOX_HEIGHT) / 2,
-                              [TEXT_BOX_WIDTH, width].min, TEXT_BOX_HEIGHT)
-    @interactions = {
-      :text_box => @text_box_rect
-    }
-  end
-
-  #-----------------------------------------------------------------------------
-
-  def disabled?
-    val = (@value.respond_to?("strip!")) ? @value.strip : @value
-    return true if @blacklist.include?(val)
-    return super
-  end
-
-  def busy?
-    return @cursor_pos >= 0 if @captured_area == :text_box
-    return super
-  end
-
-  def reset_interaction
-    @cursor_pos = -1
-    @display_pos = 0
-    @cursor_timer = nil
-    @initial_value = nil
-    Input.text_input = false
-    invalidate
-  end
-
   #-----------------------------------------------------------------------------
 
   def get_cursor_index_from_mouse_position
@@ -102,6 +77,36 @@ class UIControls::TextBox < UIControls::BaseControl
       end
     end
     return @value.to_s.length
+  end
+
+  def disabled?
+    val = (@value.respond_to?("strip!")) ? @value.strip : @value
+    return true if @blacklist.include?(val)
+    return super
+  end
+
+  def busy?
+    return @cursor_pos >= 0 if @captured_area == :text_box
+    return super
+  end
+
+  #-----------------------------------------------------------------------------
+
+  def set_interactive_rects
+    @text_box_rect = Rect.new(TEXT_BOX_X, (height - TEXT_BOX_HEIGHT) / 2,
+                              [@box_width, width - (TEXT_BOX_X * 2)].min, TEXT_BOX_HEIGHT)
+    @interactions = {
+      :text_box => @text_box_rect
+    }
+  end
+
+  def reset_interaction
+    @cursor_pos = -1
+    @display_pos = 0
+    @cursor_timer = nil
+    @initial_value = nil
+    Input.text_input = false
+    invalidate
   end
 
   def reset_display_pos
@@ -162,7 +167,7 @@ class UIControls::TextBox < UIControls::BaseControl
     return if !@cursor_shown || @cursor_pos < 0
     cursor_y_offset = ((height - TEXT_BOX_HEIGHT) / 2) + 2
     cursor_height = height - (cursor_y_offset * 2)
-    bitmap.fill_rect(cursor_x, cursor_y_offset, 2, cursor_height, self.bitmap.font.color)
+    bitmap.fill_rect(cursor_x, cursor_y_offset, 2, cursor_height, text_color)
   end
 
   def refresh
@@ -171,12 +176,12 @@ class UIControls::TextBox < UIControls::BaseControl
     if disabled?
       self.bitmap.fill_rect(@text_box_rect.x, @text_box_rect.y,
                             @text_box_rect.width, @text_box_rect.height,
-                            DISABLED_COLOR)
+                            disabled_fill_color)
     end
     # Draw text box outline
     self.bitmap.outline_rect(@text_box_rect.x, @text_box_rect.y,
                              @text_box_rect.width, @text_box_rect.height,
-                             self.bitmap.font.color)
+                             line_color)
     # Draw value
     char_x = @text_box_rect.x + TEXT_BOX_PADDING
     last_char_index = @display_pos
@@ -194,16 +199,17 @@ class UIControls::TextBox < UIControls::BaseControl
     # Draw cursor at end
     draw_cursor(char_x - 1) if @cursor_pos == @value.to_s.length
     # Draw left/right arrows to indicate more text beyond the text box sides
+    arrow_color = (disabled?) ? disabled_text_color : text_color
     if @display_pos > 0
-      bitmap.fill_rect(@text_box_rect.x, (height / 2) - 4, 1, 8, Color.white)
+      bitmap.fill_rect(@text_box_rect.x, (height / 2) - 4, 1, 8, background_color)
       5.times do |i|
-        bitmap.fill_rect(@text_box_rect.x - 2 + i, (height / 2) - (i + 1), 1, 2 * (i + 1), self.bitmap.font.color)
+        bitmap.fill_rect(@text_box_rect.x - 2 + i, (height / 2) - (i + 1), 1, 2 * (i + 1), arrow_color)
       end
     end
     if last_char_index < @value.to_s.length - 1
-      bitmap.fill_rect(@text_box_rect.x + @text_box_rect.width - 1, (height / 2) - 4, 1, 8, Color.white)
+      bitmap.fill_rect(@text_box_rect.x + @text_box_rect.width - 1, (height / 2) - 4, 1, 8, background_color)
       5.times do |i|
-        bitmap.fill_rect(@text_box_rect.x + @text_box_rect.width + 1 - i, (height / 2) - (i + 1), 1, 2 * (i + 1), self.bitmap.font.color)
+        bitmap.fill_rect(@text_box_rect.x + @text_box_rect.width + 1 - i, (height / 2) - (i + 1), 1, 2 * (i + 1), arrow_color)
       end
     end
   end

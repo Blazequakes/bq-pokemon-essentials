@@ -1,6 +1,5 @@
 #===============================================================================
-# TODO: Is there a better knob design than a big black rectangle? I'd rather
-#       it not be a different colour.
+#
 #===============================================================================
 class UIControls::NumberSlider < UIControls::BaseControl
   attr_reader :min_value
@@ -8,13 +7,11 @@ class UIControls::NumberSlider < UIControls::BaseControl
 
   PLUS_MINUS_SIZE = 16
   SLIDER_PADDING  = 6   # Gap between sides of interactive area for slider and drawn slider bar
-
-  MINUS_X       = 0
-  SLIDER_X      = MINUS_X + PLUS_MINUS_SIZE + SLIDER_PADDING
-  SLIDER_LENGTH = 128
-  PLUS_X        = SLIDER_X + SLIDER_LENGTH + SLIDER_PADDING
-  VALUE_X       = PLUS_X + PLUS_MINUS_SIZE + 5
-  TEXT_OFFSET_Y = 5
+  MINUS_X         = 0
+  SLIDER_X        = MINUS_X + PLUS_MINUS_SIZE + SLIDER_PADDING
+  SLIDER_LENGTH   = 128
+  PLUS_X          = SLIDER_X + SLIDER_LENGTH + SLIDER_PADDING
+  VALUE_X         = PLUS_X + PLUS_MINUS_SIZE + 5
 
   def initialize(width, height, viewport, min_value, max_value, value)
     super(width, height, viewport)
@@ -22,6 +19,8 @@ class UIControls::NumberSlider < UIControls::BaseControl
     @max_value = max_value
     self.value = value
   end
+
+  #-----------------------------------------------------------------------------
 
   def value=(new_value)
     old_val = @value
@@ -43,6 +42,8 @@ class UIControls::NumberSlider < UIControls::BaseControl
     self.invalidate
   end
 
+  #-----------------------------------------------------------------------------
+
   def set_interactive_rects
     @slider_rect = Rect.new(SLIDER_X - SLIDER_PADDING, (self.height - PLUS_MINUS_SIZE) / 2, SLIDER_LENGTH + (SLIDER_PADDING * 2), PLUS_MINUS_SIZE)
     @minus_rect = Rect.new(MINUS_X, (self.height - PLUS_MINUS_SIZE) / 2, PLUS_MINUS_SIZE, PLUS_MINUS_SIZE)
@@ -61,7 +62,7 @@ class UIControls::NumberSlider < UIControls::BaseControl
     # the mouse doesn't need to be on the slider to change this control's value
     if @captured_area == :slider
       rect = @interactions[@captured_area]
-      self.bitmap.fill_rect(rect.x, rect.y, rect.width, rect.height, HOVER_COLOR) if rect
+      self.bitmap.fill_rect(rect.x, rect.y, rect.width, rect.height, hover_color) if rect
     else
       super
     end
@@ -69,14 +70,14 @@ class UIControls::NumberSlider < UIControls::BaseControl
 
   def refresh
     super
-    button_color = (disabled?) ? DISABLED_COLOR : self.bitmap.font.color
+    button_color = (disabled?) ? disabled_text_color : text_color
     # Draw minus button
     self.bitmap.fill_rect(@minus_rect.x + 2, @minus_rect.y + (@minus_rect.height / 2) - 2, @minus_rect.width - 4, 4, button_color)
     # Draw slider bar
-    self.bitmap.fill_rect(SLIDER_X, (self.height / 2) - 1, SLIDER_LENGTH, 2, self.bitmap.font.color)
+    self.bitmap.fill_rect(SLIDER_X, (self.height / 2) - 1, SLIDER_LENGTH, 2, text_color)
     # Draw notches on slider bar
     5.times do |i|
-      self.bitmap.fill_rect(SLIDER_X - 1 + (i * SLIDER_LENGTH / 4), (self.height / 2) - 2, 2, 4, self.bitmap.font.color)
+      self.bitmap.fill_rect(SLIDER_X - 1 + (i * SLIDER_LENGTH / 4), (self.height / 2) - 2, 2, 4, text_color)
     end
     # Draw slider knob
     fraction = (self.value - self.min_value) / (self.max_value.to_f - self.min_value)

@@ -1,6 +1,3 @@
-# TODO: Add indicator of whether the control's value is "lerping" between frames
-#       (use yellow somehow?).
-
 #===============================================================================
 #
 #===============================================================================
@@ -8,24 +5,21 @@ class UIControls::BaseControl < BitmapSprite
   attr_reader   :value
   attr_accessor :disabled
 
-  TEXT_COLOR          = Color.black
-  TEXT_SIZE           = 18           # Default is 22 if size isn't explicitly set
-  HOVER_COLOR         = Color.cyan   # For clickable area when hovering over it
-  CAPTURE_COLOR       = Color.pink   # For area you clicked in but aren't hovering over
-  DISABLED_COLOR      = Color.gray
-  DISABLED_COLOR_DARK = Color.new(128, 128, 128)
+  TEXT_OFFSET_Y = 5
+
+  include UIControls::StyleMixin
 
   def initialize(width, height, viewport)
     super(width, height, viewport)
-    self.bitmap.font.color = TEXT_COLOR
-    self.bitmap.font.size = TEXT_SIZE
-
+    self.color_scheme = :light
     @disabled = false
     @hover_area = nil   # Is a symbol from the keys for @interactions if the mouse is hovering over that interaction
     @captured_area = nil   # Is a symbol from the keys for @interactions (or :none) if this control is clicked in
     clear_changed
     invalidate
   end
+
+  #-----------------------------------------------------------------------------
 
   def width
     return self.bitmap.width
@@ -35,6 +29,13 @@ class UIControls::BaseControl < BitmapSprite
     return self.bitmap.height
   end
 
+  def visible=(value)
+    super
+    @captured_area = nil if !self.visible
+  end
+
+  #-----------------------------------------------------------------------------
+
   def mouse_pos
     mouse_coords = Mouse.getMousePos
     return nil, nil if !mouse_coords
@@ -43,21 +44,12 @@ class UIControls::BaseControl < BitmapSprite
     return ret_x, ret_y
   end
 
-  def set_interactive_rects
-    @interactions = {}
-  end
-
   def mouse_in_control?
     return false if !@interactions || @interactions.empty?
     mouse_x, mouse_y = mouse_pos
     return false if !mouse_x || !mouse_y
-    @interactions.each_pair do |area, rect|
-      return true if rect.contains?(mouse_x, mouse_y)
-    end
-    return false
+    return @interactions.any? { |area, rect| rect.contains?(mouse_x, mouse_y) }
   end
-
-  #-----------------------------------------------------------------------------
 
   def disabled?
     return @disabled
@@ -66,6 +58,7 @@ class UIControls::BaseControl < BitmapSprite
   def disable
     return if disabled?
     @disabled = true
+    @hover_area = nil
     invalidate
   end
 
@@ -84,13 +77,13 @@ class UIControls::BaseControl < BitmapSprite
     @invalid = true
   end
 
-  # Makes the control no longer invalid.
+  # Makes the control no longer invalid. Called after repainting.
   def validate
     @invalid = false
   end
 
   def busy?
-    return !@captured_area.nil?
+    return self.visible && !@captured_area.nil?
   end
 
   def changed?
@@ -107,14 +100,20 @@ class UIControls::BaseControl < BitmapSprite
 
   #-----------------------------------------------------------------------------
 
+  def set_interactive_rects
+    @interactions = {}
+  end
+
+  #-----------------------------------------------------------------------------
+
   def draw_text(this_bitmap, text_x, text_y, this_text)
-    text_size = this_bitmap.text_size(this_text)
-    this_bitmap.draw_text(text_x, text_y, text_size.width, text_size.height, this_text, 0)
+    text_size = this_bitmap.text_size(this_text.to_s)
+    this_bitmap.draw_text(text_x, text_y, text_size.width, text_size.height, this_text.to_s, 0)
   end
 
   def draw_text_centered(this_bitmap, text_x, text_y, wid, this_text)
-    text_size = this_bitmap.text_size(this_text)
-    this_bitmap.draw_text(text_x, text_y, wid, text_size.height, this_text, 1)
+    text_size = this_bitmap.text_size(this_text.to_s)
+    this_bitmap.draw_text(text_x, text_y, wid, text_size.height, this_text.to_s, 1)
   end
 
   # Redraws the control only if it is invalid.
@@ -125,7 +124,6 @@ class UIControls::BaseControl < BitmapSprite
   end
 
   def refresh
-    # Paint over control to erase contents (intentionally not using self.bitmap.clear)
     self.bitmap.clear
     draw_area_highlight
   end
@@ -135,11 +133,11 @@ class UIControls::BaseControl < BitmapSprite
     if !@captured_area || @hover_area == @captured_area
       # Draw mouse hover over area highlight
       rect = @interactions[@hover_area]
-      self.bitmap.fill_rect(rect.x, rect.y, rect.width, rect.height, HOVER_COLOR) if rect
+      self.bitmap.fill_rect(rect.x, rect.y, rect.width, rect.height, hover_color) if rect
     elsif @captured_area
       # Draw captured area highlight
       rect = @interactions[@captured_area]
-      self.bitmap.fill_rect(rect.x, rect.y, rect.width, rect.height, CAPTURE_COLOR) if rect
+      self.bitmap.fill_rect(rect.x, rect.y, rect.width, rect.height, capture_color) if rect
     end
   end
 
@@ -194,10 +192,8 @@ class UIControls::BaseControl < BitmapSprite
   # Updates the logic on the control, invalidating it if necessary.
   def update
     return if !self.visible
-    return if disabled? && !busy?
-
+    return if disabled? && !busy?   # This control still works if it becomes disabled while using it
     update_hover_highlight
-
     # Detect a mouse press/release
     if @interactions && !@interactions.empty?
       if Input.trigger?(Input::MOUSELEFT)
@@ -206,6 +202,5 @@ class UIControls::BaseControl < BitmapSprite
         on_mouse_release
       end
     end
-
   end
 end

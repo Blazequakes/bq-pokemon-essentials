@@ -7,7 +7,6 @@ class UIControls::NumberTextBox < UIControls::TextBox
 
   PLUS_MINUS_SIZE = 16
   CONTROL_PADDING = 2   # Gap between buttons and text box
-
   MINUS_X         = 0
   TEXT_BOX_X      = MINUS_X + PLUS_MINUS_SIZE + CONTROL_PADDING
   TEXT_BOX_WIDTH  = 64
@@ -21,46 +20,37 @@ class UIControls::NumberTextBox < UIControls::TextBox
     self.value = value
   end
 
+  #-----------------------------------------------------------------------------
+
   def value=(new_value)
-    old_val = @value
+    old_val = @value.to_i
     @value = new_value.to_i.clamp(self.min_value, self.max_value)
-    self.invalidate if @value != old_val
+    invalidate if @value != old_val
   end
 
   def min_value=(new_min)
     return if new_min == @min_value
     @min_value = new_min
-    @value = @value.clamp(self.min_value, self.max_value)
-    self.invalidate
+    @value = @value.to_i.clamp(self.min_value, self.max_value)
+    invalidate
   end
 
   def max_value=(new_max)
     return if new_max == @max_value
     @max_value = new_max
-    @value = @value.clamp(self.min_value, self.max_value)
-    self.invalidate
+    @value = @value.to_i.clamp(self.min_value, self.max_value)
+    invalidate
   end
 
-  # TODO: If current value is 0, replace it with ch instead of inserting ch?
-  def insert_char(ch)
-    self.value = @value.to_s.insert(@cursor_pos, ch).to_i
+  def insert_char(ch, index = -1)
+    @value = @value.to_s.insert((index >= 0) ? index : @cursor_pos, ch)
     @cursor_pos += 1
-    @cursor_pos = @cursor_pos.clamp(0, @value.to_s.length)
     @cursor_timer = System.uptime
     @cursor_shown = true
     invalidate
   end
 
-  def delete_at(index)
-    new_val = @value.to_s
-    new_val.slice!(index)
-    self.value = new_val.to_i
-    @cursor_pos -= 1 if @cursor_pos > index
-    @cursor_pos = @cursor_pos.clamp(0, @value.to_s.length)
-    @cursor_timer = System.uptime
-    @cursor_shown = true
-    invalidate
-  end
+  #-----------------------------------------------------------------------------
 
   def set_interactive_rects
     @text_box_rect = Rect.new(TEXT_BOX_X, (height - TEXT_BOX_HEIGHT) / 2,
@@ -74,11 +64,16 @@ class UIControls::NumberTextBox < UIControls::TextBox
     }
   end
 
+  def reset_interaction
+    super
+    self.value = @value   # Turn value back into a number and clamp it
+  end
+
   #-----------------------------------------------------------------------------
 
   def refresh
     super
-    button_color = (disabled?) ? DISABLED_COLOR : self.bitmap.font.color
+    button_color = (disabled?) ? disabled_text_color : text_color
     # Draw minus button
     self.bitmap.fill_rect(@minus_rect.x + 2, @minus_rect.y + (@minus_rect.height / 2) - 2, @minus_rect.width - 4, 4, button_color)
     # Draw plus button
@@ -99,25 +94,34 @@ class UIControls::NumberTextBox < UIControls::TextBox
     elsif @captured_area
       @initial_value = @value
     else
-      set_changed if @initial_value && @value != @initial_value
       reset_interaction
+      set_changed if @initial_value && @value != @initial_value
     end
   end
 
   def update_text_entry
     ret = false
     Input.gets.each_char do |ch|
-      next if !["0", "1", "2", "3", "4", "5", "6", "7", "8", "9", "-"].include?(ch)
-      if ch == "-"
-        next if @min_value >= 0 || @cursor_pos > 1 || (@cursor_pos > 0 && @value >= 0)
-        if @value < 0
+      case ch
+      when "0", "1", "2", "3", "4", "5", "6", "7", "8", "9"
+        if (@value.to_s == "-0" && @cursor_pos > 1) ||
+           (@value.to_s == "0" && @cursor_pos > 0)
+          @value = @value.to_s.chop
+          @cursor_pos -= 1
+        end
+        insert_char(ch)
+        ret = true
+      when "-", "+"
+        @value = @value.to_s
+        if @value[0] == "-"
           delete_at(0)   # Remove the negative sign
           ret = true
-          next
+        elsif ch == "-"
+          insert_char(ch, 0)   # Add a negative sign at the start
+          ret = true
         end
+        next
       end
-      insert_char(ch)
-      ret = true
     end
     return ret
   end

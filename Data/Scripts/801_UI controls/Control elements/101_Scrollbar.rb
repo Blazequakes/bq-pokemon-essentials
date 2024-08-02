@@ -1,17 +1,12 @@
 #===============================================================================
-# TODO: Make the slider a separate sprite that moves, instead of redrawing this
-#       sprite's bitmap whenever it moves? Intended to reduce lag. There doesn't
-#       seem to be any lag at the moment with a tall scrollbar.
+#
 #===============================================================================
 class UIControls::Scrollbar < UIControls::BaseControl
+  attr_reader :slider_top
+
   SLIDER_WIDTH    = 16
   WIDTH_PADDING   = 0
   SCROLL_DISTANCE = 16
-  TRAY_COLOR      = Color.white
-  SLIDER_COLOR    = Color.black
-  GRAB_COLOR      = HOVER_COLOR   # Cyan
-
-  attr_reader :slider_top
 
   def initialize(x, y, size, viewport, horizontal = false, always_visible = false)
     if horizontal
@@ -30,10 +25,7 @@ class UIControls::Scrollbar < UIControls::BaseControl
     self.visible    = @always_visible
   end
 
-  def position
-    return 0 if @range <= @tray_size
-    return (@range - @tray_size) * @slider_top / (@tray_size - @slider_size)
-  end
+  #-----------------------------------------------------------------------------
 
   # Range is the total size of the large area that the scrollbar is able to
   # show part of.
@@ -62,6 +54,21 @@ class UIControls::Scrollbar < UIControls::BaseControl
     invalidate if @slider_top != old_val
   end
 
+  def position
+    return 0 if @range <= @tray_size
+    return (@range - @tray_size) * @slider_top / (@tray_size - @slider_size)
+  end
+
+  def minimum?
+    return @slider_top <= 0
+  end
+
+  def maximum?
+    return @slider_top >= @tray_size - @slider_size
+  end
+
+  #-----------------------------------------------------------------------------
+
   def set_interactive_rects
     @interactions = {}
     if @horizontal
@@ -80,14 +87,14 @@ class UIControls::Scrollbar < UIControls::BaseControl
     super
     return if !self.visible
     # Draw the tray
-    self.bitmap.fill_rect(@slider_tray.x, @slider_tray.y, @slider_tray.width, @slider_tray.height, TRAY_COLOR)
+    self.bitmap.fill_rect(@slider_tray.x, @slider_tray.y, @slider_tray.width, @slider_tray.height, background_color)
     # Draw the slider
-    if @slider_size < @tray_size
-      bar_color = SLIDER_COLOR
+    if @slider_size < @tray_size && !disabled?
       if @captured_area == :slider || (!@captured_area && @hover_area == :slider)
-        bar_color = GRAB_COLOR
+        bar_color = hover_color
+      else
+        bar_color = text_color
       end
-      bar_color = DISABLED_COLOR if disabled?
       self.bitmap.fill_rect(@slider.x, @slider.y, @slider.width, @slider.height, bar_color)
     end
   end
@@ -122,9 +129,6 @@ class UIControls::Scrollbar < UIControls::BaseControl
     return if !self.visible
     super
     if @captured_area == :slider
-      # TODO: Have a display y position for the slider bar which is in pixels,
-      #       and round it to the nearest row when setting @top_row? This is
-      #       just to make the slider bar movement smoother.
       mouse_x, mouse_y = mouse_pos
       return if !mouse_x || !mouse_y
       long_coord = (@horizontal) ? mouse_x : mouse_y

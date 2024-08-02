@@ -47,7 +47,7 @@ module Compiler
         elsif line[/^\s*(\w+)\s*=\s*(.*)$/]
           # XXX=YYY lines
           if !data_hash
-            raise _INTL("Expected a section at the beginning of the file.\n{1}", FileLineData.linereport)
+            raise _INTL("Expected a section at the beginning of the file.") + "\n" + FileLineData.linereport
           end
           key = $~[1]
           if schema[key]   # Property of the animation
@@ -62,7 +62,7 @@ module Compiler
             end
           elsif sub_schema[key]   # Property of a particle
             if !current_particle
-              raise _INTL("Particle hasn't been defined yet!\n{1}", FileLineData.linereport)
+              raise _INTL("Particle hasn't been defined yet!") + "\n" + FileLineData.linereport
             end
             value = get_csv_record($~[2], sub_schema[key])
             if sub_schema[key][1][0] == "^"
@@ -94,12 +94,21 @@ module Compiler
     hash[:type] = hash[:id][0]
     hash[:move] = hash[:id][1]
     hash[:version] = hash[:id][2] || 0
+    # Ensure there is at most one each of "User", "Target" and "SE" particles
+    ["User", "Target", "SE"].each do |type|
+      next if hash[:particles].count { |particle| particle[:name] == type } <= 1
+      raise _INTL("Animation has more than 1 \"{1}\" particle, which isn't allowed.", type) + "\n" + FileLineData.linereport
+    end
+    # Ensure there is no "User" particle if "NoUser" is set
+    if hash[:particles].any? { |particle| particle[:name] == "User" } && hash[:no_user]
+      raise _INTL("Can't define a \"User\" particle and also set property \"NoUser\" to true.") + "\n" + FileLineData.linereport
+    end
     # Ensure there is no "Target" particle if "NoTarget" is set
     if hash[:particles].any? { |particle| particle[:name] == "Target" } && hash[:no_target]
       raise _INTL("Can't define a \"Target\" particle and also set property \"NoTarget\" to true.") + "\n" + FileLineData.linereport
     end
-    # Create "User", "SE" and "Target" particles if they don't exist but should
-    if hash[:particles].none? { |particle| particle[:name] == "User" }
+    # Create "User", "Target" and "SE" particles if they don't exist but should
+    if hash[:particles].none? { |particle| particle[:name] == "User" } && !hash[:no_user]
       hash[:particles].push({:name => "User"})
     end
     if hash[:particles].none? { |particle| particle[:name] == "Target" } && !hash[:no_target]
@@ -135,7 +144,7 @@ module Compiler
         case particle[:name]
         when "User"   then particle[:focus] = :user
         when "Target" then particle[:focus] = :target
-        else               particle[:focus] = :screen
+        else               particle[:focus] = GameData::Animation::PARTICLE_DEFAULT_VALUES[:focus]
         end
       end
       # Ensure user/target particles have a default graphic if not given
@@ -145,14 +154,93 @@ module Compiler
         when "Target" then particle[:graphic] = "TARGET"
         end
       end
-      # Ensure that particles don't have a focus involving a target if the
-      # animation itself doesn't involve a target
-      if hash[:no_target] && [:target, :user_and_target].include?(particle[:focus])
-        raise _INTL("Particle \"{1}\" can't have a \"Focus\" that involves a target if property \"NoTarget\" is set to true.",
-          particle[:name]) + "\n" + FileLineData.linereport
+      # If the animation doesn't involve a user, ensure that particles don't
+      # have a focus/graphic that involves a user, and that the animation
+      # doesn't play a user's cry
+      if hash[:no_user]
+        if GameData::Animation::FOCUS_TYPES_WITH_USER.include?(particle[:focus])
+          raise _INTL("Particle \"{1}\" can't have a \"Focus\" that involves a user if property \"NoUser\" is set to true.",
+                      particle[:name]) + "\n" + FileLineData.linereport
+        end
+        if ["USER", "USER_OPP", "USER_FRONT", "USER_BACK"].include?(particle[:graphic])
+          raise _INTL("Particle \"{1}\" can't have a \"Graphic\" that involves a user if property \"NoUser\" is set to true.",
+                      particle[:name]) + "\n" + FileLineData.linereport
+        end
+        if particle[:name] == "SE" && particle[:user_cry] && !particle[:user_cry].empty?
+          raise _INTL("Animation can't play the user's cry if property \"NoUser\" is set to true.") + "\n" + FileLineData.linereport
+        end
       end
-      # TODO: For SE particle, ensure that it doesn't play two instances of the
-      #       same file in the same frame.
+      # If the animation doesn't involve a target, ensure that particles don't
+      # have a focus/graphic that involves a target, and that the animation
+      # doesn't play a target's cry
+      if hash[:no_target]
+        if GameData::Animation::FOCUS_TYPES_WITH_TARGET.include?(particle[:focus])
+          raise _INTL("Particle \"{1}\" can't have a \"Focus\" that involves a target if property \"NoTarget\" is set to true.",
+                      particle[:name]) + "\n" + FileLineData.linereport
+        end
+        if ["TARGET", "TARGET_OPP", "TARGET_FRONT", "TARGET_BACK"].include?(particle[:graphic])
+          raise _INTL("Particle \"{1}\" can't have a \"Graphic\" that involves a target if property \"NoTarget\" is set to true.",
+                      particle[:name]) + "\n" + FileLineData.linereport
+        end
+        if particle[:name] == "SE" && particle[:target_cry] && !particle[:target_cry].empty?
+          raise _INTL("Animation can't play the target's cry if property \"NoTarget\" is set to true.") + "\n" + FileLineData.linereport
+        end
+      end
+      # Ensure that none of the particle's "alter something if focus is a
+      # battler on the foe's side" properties are set if the particle doesn't
+      # have such a focus
+      if GameData::Animation::FOCUS_TYPES_WITH_USER.include?(particle[:focus]) == GameData::Animation::FOCUS_TYPES_WITH_TARGET.include?(particle[:focus])
+        if particle[:foe_invert_x]
+          raise _INTL("Particle \"{1}\" can't set \"FoeInvertX\" if its focus isn't exactly 1 thing.",
+                      particle[:name]) + "\n" + FileLineData.linereport
+        end
+        if particle[:foe_invert_y]
+          raise _INTL("Particle \"{1}\" can't set \"FoeInvertY\" if its focus isn't exactly 1 thing.",
+                      particle[:name]) + "\n" + FileLineData.linereport
+        end
+        if particle[:foe_flip]
+          raise _INTL("Particle \"{1}\" can't set \"FoeFlip\" if its focus isn't exactly 1 thing.",
+                      particle[:name]) + "\n" + FileLineData.linereport
+        end
+      end
+      # Ensure that only particles that have an entity as a focus can have a
+      # smart angle
+      if (particle[:angle_override] || :none) != :none &&
+         !GameData::Animation::FOCUS_TYPES_WITH_USER.include?(particle[:focus]) &&
+         !GameData::Animation::FOCUS_TYPES_WITH_TARGET.include?(particle[:focus])
+        raise _INTL("Particle \"{1}\" can't set \"AngleOverride\" if its focus isn't a specific thing(s).",
+                    particle[:name]) + "\n" + FileLineData.linereport
+      end
+      # Ensure that a particle with a user's/target's graphic doesn't have any
+      # :frame commands
+      if !["User", "Target", "SE"].include?(particle[:name]) &&
+         ["USER", "USER_OPP", "USER_FRONT", "USER_BACK",
+          "TARGET", "TARGET_OPP", "TARGET_FRONT", "TARGET_BACK"].include?(particle[:graphic]) &&
+         particle[:frame] && !particle[:frame].empty?
+        raise _INTL("Particle \"{1}\" can't have any \"Frame\" commands if its graphic is a Pokémon's sprite.",
+                    particle[:name]) + "\n" + FileLineData.linereport
+      end
+      # Ensure that the same SE isn't played twice in the same frame
+      if particle[:name] == "SE"
+        [:se, :user_cry, :target_cry].each do |property|
+          next if !particle[property]
+          files_played = []
+          particle[property].each do |play|
+            files_played[play[0]] ||= []
+            if files_played[play[0]].include?(play[1])
+              case property
+              when :se
+                raise _INTL("SE \"{1}\" should not play twice in the same frame ({2}).", play[1], play[0]) + "\n" + FileLineData.linereport
+              when :user_cry
+                raise _INTL("User's cry should not play twice in the same frame ({1}).", play[0]) + "\n" + FileLineData.linereport
+              when :target_cry
+                raise _INTL("Target's cry should not play twice in the same frame ({1}).", play[0]) + "\n" + FileLineData.linereport
+              end
+            end
+            files_played[play[0]].push(play[1])
+          end
+        end
+      end
       # Convert all "SetXYZ" particle commands to "MoveXYZ" by giving them a
       # duration of 0 (even ones that can't have a "MoveXYZ" command)
       GameData::Animation::PARTICLE_KEYFRAME_DEFAULT_VALUES.keys.each do |prop|
@@ -202,6 +290,7 @@ end
 
 #===============================================================================
 # Hook into the regular Compiler to also compile animation PBS files.
+# This is a separate Compiler that runs after the regular one.
 #===============================================================================
 module Compiler
   module_function
@@ -215,24 +304,70 @@ module Compiler
   end
 
   class << self
-    if !method_defined?(:__new_anims__get_all_pbs_files_to_compile)
-      alias_method :__new_anims__get_all_pbs_files_to_compile, :get_all_pbs_files_to_compile
-    end
-    if !method_defined?(:__new_anims__compile_pbs_files)
-      alias_method :__new_anims__compile_pbs_files, :compile_pbs_files
+    if !method_defined?(:__new_anims_main)
+      alias_method :__new_anims_main, :main
     end
   end
 
-  def get_all_pbs_files_to_compile
-    ret = __new_anims__get_all_pbs_files_to_compile
-    extra = get_animation_pbs_files_to_compile
-    ret[:Animation] = [nil, extra]
-    return ret
-  end
-
-  def compile_pbs_files
-    __new_anims__compile_pbs_files
-    text_files = get_animation_pbs_files_to_compile
-    compile_battle_animations(*text_files)
+  def main
+    __new_anims_main
+    return if !$DEBUG
+    begin
+      Console.echo_h1(_INTL("Checking new animations data"))
+      must_compile = false
+      data_file = "animations.dat"
+      text_files = get_animation_pbs_files_to_compile
+      latest_data_time = 0
+      latest_text_time = 0
+      # Check data file for its latest modify time
+      if FileTest.exist?("Data/" + data_file)
+        begin
+          File.open("Data/#{data_file}") do |file|
+            latest_data_time = [latest_data_time, file.mtime.to_i].max
+          end
+        rescue SystemCallError
+          must_compile = true
+        end
+      else
+        must_compile = true if text_files.length > 0
+      end
+      # Check PBS files for their latest modify time
+      text_files.each do |filepath|
+        begin
+          File.open(filepath) do |file|
+            latest_text_time = [latest_text_time, file.mtime.to_i].max
+          end
+        rescue SystemCallError
+        end
+      end
+      # Decide to compile if a PBS file was edited more recently than the .dat file
+      must_compile |= (latest_text_time >= latest_data_time)
+      # Should recompile if holding Ctrl
+      Input.update
+      must_compile = true if $full_compile || Input.press?(Input::CTRL)
+      # Delete old data file in preparation for recompiling
+      if must_compile
+        begin
+          File.delete("Data/#{data_file}") if FileTest.exist?("Data/#{data_file}")
+        rescue SystemCallError
+        end
+        # Recompile all data
+        compile_battle_animations(*text_files)
+      else
+        Console.echoln_li(_INTL("New animations data were not compiled"))
+      end
+      echoln ""
+    rescue Exception
+      e = $!
+      raise e if e.class.to_s == "Reset" || e.is_a?(Reset) || e.is_a?(SystemExit)
+      pbPrintException(e)
+      begin
+        File.delete("Data/#{data_file}") if FileTest.exist?("Data/#{data_file}")
+      rescue SystemCallError
+      end
+      raise Reset.new if e.is_a?(Hangup)
+      raise SystemExit.new if e.is_a?(RuntimeError)
+      raise "Unknown exception when compiling animations."
+    end
   end
 end
