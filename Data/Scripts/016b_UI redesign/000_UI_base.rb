@@ -135,6 +135,66 @@ module UI
       end
     end
 
+    SLIDER_COORDS = {   # Size of elements in slider graphic
+      :arrow_size  => [24, 28],
+      :box_heights => [4, 8, 18]   # Heights of top, middle and bottom segments of slider box
+    }
+
+    # slider_height includes the heights of the arrows at either end.
+    def draw_slider(bitmap, slider_x, slider_y, slider_height, visible_top, visible_height, total_height, hide_if_inactive: :false, overlay: :overlay)
+      coords = self.class::SLIDER_COORDS
+      bar_y = slider_y + coords[:arrow_size][1]
+      bar_height = slider_height - (2 * coords[:arrow_size][1])
+      bar_segment_height = coords[:box_heights].sum   # Also minimum height of slider box
+      show_up_arrow = (visible_top > 0)
+      show_down_arrow = (visible_top + visible_height < total_height)
+      return if hide_if_inactive && !show_up_arrow && !show_down_arrow
+      # Draw up arrow
+      x_offset = (show_up_arrow) ? coords[:arrow_size][0] : 0
+      draw_image(bitmap, slider_x, slider_y,
+                 x_offset, 0, *coords[:arrow_size], overlay: overlay)
+      # Draw down arrow
+      x_offset = (show_down_arrow) ? coords[:arrow_size][0] : 0
+      draw_image(bitmap, slider_x, slider_y + slider_height - coords[:arrow_size][1],
+                 x_offset, coords[:arrow_size][1] + bar_segment_height, *coords[:arrow_size], overlay: overlay)
+      # Draw bar background
+      iterations = (bar_height / bar_segment_height.to_f).ceil
+      iterations.times do |i|
+        segment_y = bar_y + (i * bar_segment_height)
+        iteration_height = bar_segment_height
+        iteration_height = bar_height - (i * bar_segment_height) if i == iterations - 1   # Last part
+        draw_image(bitmap, slider_x, segment_y,
+                   0, coords[:arrow_size][1], coords[:arrow_size][0], iteration_height, overlay: overlay)
+      end
+      # Draw slider box
+      if show_up_arrow || show_down_arrow
+        box_height = (bar_height * visible_height / total_height).floor
+        box_height += [(bar_height - box_height) / 2, bar_height / 6].min   # Make it bigger than expected
+        box_height = [box_height.floor, bar_segment_height].max
+        box_y = bar_y
+        box_y += ((bar_height - box_height) * visible_top / (total_height - visible_height)).floor
+        # Draw slider box top
+        draw_image(bitmap, slider_x, box_y,
+                   coords[:arrow_size][0], coords[:arrow_size][1],
+                   coords[:arrow_size][0], coords[:box_heights][0], overlay: overlay)
+        # Draw slider box middle
+        middle_height = box_height - coords[:box_heights][0] - coords[:box_heights][2]
+        iterations = (middle_height / coords[:box_heights][1].to_f).ceil
+        iterations.times do |i|
+          segment_y = box_y + coords[:box_heights][0] + (i * coords[:box_heights][1])
+          iteration_height = coords[:box_heights][1]
+          iteration_height = middle_height - (i * coords[:box_heights][1]) if i == iterations - 1   # Last part
+          draw_image(bitmap, slider_x, segment_y,
+                     coords[:arrow_size][0], coords[:arrow_size][1] + coords[:box_heights][0],
+                     coords[:arrow_size][0], iteration_height, overlay: overlay)
+        end
+        # Draw slider box bottom
+        draw_image(bitmap, slider_x, box_y + box_height - coords[:box_heights][2],
+                   coords[:arrow_size][0], coords[:arrow_size][1] + coords[:box_heights][0] + coords[:box_heights][1],
+                   coords[:arrow_size][0], coords[:box_heights][2], overlay: overlay)
+      end
+    end
+
     #---------------------------------------------------------------------------
 
     # Redraw everything on the screen.
@@ -325,6 +385,7 @@ module UI
       @sprites[:speech_box].visible = true
       @sprites[:speech_box].text = text
       pbBottomLeftLines(@sprites[:speech_box], 2)
+      yielded = false
       loop do
         Graphics.update
         Input.update
@@ -334,8 +395,12 @@ module UI
             pbPlayDecisionSE if @sprites[:speech_box].pausing?
             @sprites[:speech_box].resume
           end
-        elsif Input.trigger?(Input::USE) || Input.trigger?(Input::BACK)
-          break
+        else
+          yield if !yielded && block_given?
+          yielded = true
+          if Input.trigger?(Input::USE) || Input.trigger?(Input::BACK)
+            break
+          end
         end
       end
       @sprites[:speech_box].visible = false
@@ -375,9 +440,10 @@ module UI
       return ret
     end
 
+    # Used for dialogue.
     # align: Where the command window is in relation to the message window.
     #        :horizontal is side by side, :vertical is command window above.
-    def show_choice_message(text, options, index = 0, align: :horizontal, cmd_side: :right)
+    def show_choice_message(text, options, index = 0, align: :vertical, cmd_side: :right)
       ret = -1
       commands = options
       commands = options.values if options.is_a?(Hash)
@@ -428,6 +494,14 @@ module UI
       return ret
     end
 
+    def show_menu(text, options, index = 0, cmd_side: :right)
+      old_letter_by_letter = @sprites[:speech_box].letterbyletter
+      @sprites[:speech_box].letterbyletter = false
+      ret = show_choice_message(text, options, index, align: :horizontal, cmd_side: cmd_side)
+      @sprites[:speech_box].letterbyletter = old_letter_by_letter
+      return ret
+    end
+
     def show_choice(options, index = 0)
       ret = -1
       commands = options
@@ -462,6 +536,72 @@ module UI
         return pbMessageChooseNumber(help_text, maximum) { update_visuals }
       end
       return UIHelper.pbChooseNumber(@sprites[:speech_box], help_text, maximum, init_value) { update_visuals }
+    end
+
+    def choose_number_as_money_multiplier(help_text, money_per_unit, maximum, init_value = 1)
+      @sprites[:speech_box].visible = true
+      @sprites[:speech_box].text = help_text
+      pbBottomLeftLines(@sprites[:speech_box], 2)
+      # Show the help text
+      loop do
+        Graphics.update
+        Input.update
+        update_visuals
+        if @sprites[:speech_box].busy?
+          if Input.trigger?(Input::USE)
+            pbPlayDecisionSE if @sprites[:speech_box].pausing?
+            @sprites[:speech_box].resume
+          end
+        else
+          break
+        end
+      end
+      # Choose a quantity
+      item_price = money_per_unit
+      quantity = init_value
+      using(num_window = Window_AdvancedTextPokemon.newWithSize(
+            _INTL("×{1}<r>${2}", quantity, (quantity * item_price).to_s_formatted),
+            0, 0, 224, 64, @viewport)) do
+        num_window.z              = 2000
+        num_window.visible        = true
+        num_window.letterbyletter = false
+        pbBottomRight(num_window)
+        num_window.y -= @sprites[:speech_box].height
+        loop do
+          Graphics.update
+          Input.update
+          update
+          num_window.update
+          # Change quantity
+          old_quantity = quantity
+          if Input.repeat?(Input::LEFT)
+            quantity = [quantity - 10, 1].max
+          elsif Input.repeat?(Input::RIGHT)
+            quantity = [quantity + 10, maximum].min
+          elsif Input.repeat?(Input::UP)
+            quantity += 1
+            quantity = 1 if quantity > maximum
+          elsif Input.repeat?(Input::DOWN)
+            quantity -= 1
+            quantity = maximum if quantity < 1
+          end
+          if quantity != old_quantity
+            num_window.text = _INTL("×{1}<r>${2}", quantity, (quantity * item_price).to_s_formatted)
+            pbPlayCursorSE
+          end
+          # Finish choosing a quantity
+          if Input.trigger?(Input::USE)
+            pbPlayDecisionSE
+            break
+          elsif Input.trigger?(Input::BACK)
+            pbPlayCancelSE
+            quantity = 0
+            break
+          end
+        end
+      end
+      @sprites[:speech_box].visible = false
+      return quantity
     end
 
     #---------------------------------------------------------------------------
@@ -543,8 +683,8 @@ module UI
 
     #-----------------------------------------------------------------------------
 
-    def show_message(text)
-      @visuals.show_message(text)
+    def show_message(text, &block)
+      @visuals.show_message(text, &block)
     end
 
     alias pbDisplay show_message
@@ -561,6 +701,10 @@ module UI
 
     alias pbShowCommands show_choice_message
 
+    def show_menu(text, options, initial_index = 0, cmd_side: :right)
+      return @visuals.show_menu(text, options, initial_index, cmd_side: cmd_side)
+    end
+
     def show_choice(options, initial_index = 0)
       return @visuals.show_choice(options, initial_index)
     end
@@ -570,7 +714,7 @@ module UI
       MenuHandlers.each_available(menu_handler_id, self) do |option, _hash, name|
         commands[option] = name
       end
-      return show_choice_message(message, commands) if message
+      return show_menu(message, commands) if message
       return show_choice(commands)
     end
 
@@ -579,6 +723,10 @@ module UI
     end
 
     alias pbChooseNumber choose_number
+
+    def choose_number_as_money_multiplier(help_text, money_per_unit, maximum, init_value = 1)
+      return @visuals.choose_number_as_money_multiplier(help_text, money_per_unit, maximum, init_value)
+    end
 
     #-----------------------------------------------------------------------------
 

@@ -51,6 +51,14 @@ class UI::BagVisualsList < Window_DrawableCommand
     @disable_sorting = value
   end
 
+  def switching_base_color=(value)
+    @switching_base_color = value
+  end
+
+  def switching_shadow_color=(value)
+    @switching_shadow_color = value
+  end
+
   #-----------------------------------------------------------------------------
 
   # Custom method that allows for an extra option to be displayed above and
@@ -82,14 +90,6 @@ class UI::BagVisualsList < Window_DrawableCommand
       drawItem(i, @item_max, itemRect(i))
     end
     drawCursor(self.index, itemRect(self.index))
-  end
-
-  def switching_base_color=(value)
-    @switching_base_color = value
-  end
-
-  def switching_shadow_color=(value)
-    @switching_shadow_color = value
   end
 
   def drawItem(index, _count, rect)
@@ -170,11 +170,13 @@ class UI::BagVisuals < UI::BaseVisuals
   GRAPHICS_FOLDER   = "Bag/"   # Subfolder in Graphics/UI
   TEXT_COLOR_THEMES = {   # These color themes are added to @sprites[:overlay]
     :default   => [Color.new(248, 248, 248), Color.new(56, 56, 56)],   # Base and shadow colour
-#    :white     => [Color.new(248, 248, 248), Color.new(104, 104, 104)],   # Summary screen's white
-#    :black     => [Color.new(64, 64, 64), Color.new(176, 176, 176)]       # Summary screen's black
     :white     => [Color.new(248, 248, 248), Color.new(56, 56, 56)],
     :black     => [Color.new(88, 88, 80), Color.new(168, 184, 184)],
     :switching => [Color.new(224, 0, 0), Color.new(248, 144, 144)]
+  }
+  SLIDER_COORDS = {   # Size of elements in slider graphic
+    :arrow_size  => [24, 28],
+    :box_heights => [4, 8, 18]   # Heights of top, middle and bottom segments of slider box
   }
   ITEMS_VISIBLE = 6
 
@@ -249,7 +251,7 @@ class UI::BagVisuals < UI::BaseVisuals
     @sprites[:item_icon] = ItemIconSprite.new(48, Graphics.height - 48, nil, @viewport)
     # Selected item's description text box
     @sprites[:item_description] = Window_UnformattedTextPokemon.newWithSize(
-      "", 76, 272, Graphics.width - 100, 128, @viewport
+      "", 76, 272, Graphics.width - 98, 128, @viewport
     )
     @sprites[:item_description].baseColor   = TEXT_COLOR_THEMES[:white][0]
     @sprites[:item_description].shadowColor = TEXT_COLOR_THEMES[:white][1]
@@ -509,63 +511,16 @@ class UI::BagVisuals < UI::BaseVisuals
     @sprites[:item_list].refresh
   end
 
-  # TODO: Probably turn this method into a helper method. Put the defined values
-  #       in constants so that initializing the slider overlay can use them to
-  #       automatically determine its size.
   def refresh_slider
     @sprites[:slider_overlay].bitmap.clear
-    # Define useful values
-    slider_rects = {
-      :up_arrow   => [0, 0, 24, 28],
-      :down_arrow => [0, 28, 24, 28],
-      :box_top    => [24, 0, 24, 4],
-      :box_middle => [24, 4, 24, 8],
-      :box_bottom => [24, 12, 24, 18]
-    }
-    slider_x = 0
-    slider_y = slider_rects[:up_arrow][3]
-    slider_height = 168
-    min_box_height = slider_rects[:box_top][3] + slider_rects[:box_middle][3] + slider_rects[:box_bottom][3]
-    # Draw things
-    show_slider = false
-    # Draw slider up arrow
-    if @sprites[:item_list].top_row > 0
-      draw_image(@bitmaps[:slider], slider_x, slider_y - slider_rects[:up_arrow][3],
-                 *slider_rects[:up_arrow], overlay: :slider_overlay)
-      show_slider = true
-    end
-    # Draw slider down arrow
-    if @sprites[:item_list].top_item + @sprites[:item_list].page_item_max < @sprites[:item_list].itemCount
-      draw_image(@bitmaps[:slider], slider_x, slider_y + slider_height,
-                 *slider_rects[:down_arrow], overlay: :slider_overlay)
-      show_slider = true
-    end
-    # Draw slider box
-    if show_slider
-      box_height = (slider_height * @sprites[:item_list].page_row_max / @sprites[:item_list].row_max).floor
-      box_height += [(slider_height - box_height) / 2, slider_height / 6].min   # Make it bigger than expected
-      box_height = [box_height.floor, min_box_height].max
-      box_y = slider_rects[:up_arrow][3]
-      box_y += ((slider_height - box_height) * @sprites[:item_list].top_row / (@sprites[:item_list].row_max - @sprites[:item_list].page_row_max)).floor
-      # Draw slider box top
-      draw_image(@bitmaps[:slider], slider_x, box_y,
-                 *slider_rects[:box_top], overlay: :slider_overlay)
-      # Draw slider box middle
-      middle_height = box_height - slider_rects[:box_top][3] - slider_rects[:box_bottom][3]
-      iterations = (middle_height / slider_rects[:box_middle][3].to_f).ceil
-      iterations.times do |i|
-        segment_y = box_y + slider_rects[:box_top][3] + (i * slider_rects[:box_middle][3])
-        box_middle_rect = slider_rects[:box_middle].clone
-        if i == iterations - 1   # Last part
-          box_middle_rect[3] = middle_height - (i * slider_rects[:box_middle][3])
-        end
-        draw_image(@bitmaps[:slider], slider_x, segment_y,
-                   *box_middle_rect, overlay: :slider_overlay)
-      end
-      # Draw slider box bottom
-      draw_image(@bitmaps[:slider], slider_x, box_y + box_height - slider_rects[:box_bottom][3],
-                 *slider_rects[:box_bottom], overlay: :slider_overlay)
-    end
+    slider_x       = 0
+    slider_y       = 0
+    slider_height  = 224   # Includes heights of arrows at either end
+    visible_top    = @sprites[:item_list].top_row
+    visible_height = @sprites[:item_list].page_row_max
+    total_height   = @sprites[:item_list].row_max
+    draw_slider(@bitmaps[:slider], slider_x, slider_y, slider_height,
+                visible_top, visible_height, total_height, overlay: :slider_overlay)
   end
 
   def refresh_selected_item
@@ -589,7 +544,7 @@ class UI::BagVisuals < UI::BaseVisuals
     use_type = item_data.field_use
     # TODO: If @mode == :choose_item_in_battle, also check for item usage on a
     #       battler.
-    return if !pbCanUseOnPokemon?(item)
+    return if !pbCanUseItemOnPokemon?(item)
     icon_x = 0
     icon_y = 0
     icon_size = [@bitmaps[:party_icons].height, @bitmaps[:party_icons].height]
@@ -755,6 +710,8 @@ class UI::BagVisuals < UI::BaseVisuals
       return update_interaction_choose_item(Input::USE)
     elsif Input.trigger?(Input::BACK)
       return update_interaction_choose_item(Input::BACK)
+    elsif Input.trigger?(Input::ACTION)
+      return update_interaction_choose_item(Input::ACTION)
     end
     return nil
   end
@@ -768,6 +725,13 @@ class UI::BagVisuals < UI::BaseVisuals
       end
       pbPlayDecisionSE
       return :chosen
+    when Input::ACTION
+      if item && @pocket == :Machines
+        pbPlayDecisionSE
+        @show_move_details = !@show_move_details
+        refresh_move_details
+        refresh_input_indicators
+      end
     when Input::BACK
       pbPlayCloseMenuSE
       return :quit
@@ -1019,7 +983,7 @@ UIActionHandlers.add(UI::Bag::SCREEN_ID, :debug, {
   :effect => proc { |screen|
     command = 0
     loop do
-      command = screen.show_choice_message(
+      command = screen.show_menu(
         _INTL("Do what with {1}?", screen.item.name),
         [_INTL("Change quantity"), _INTL("Make Mystery Gift"), _INTL("Cancel")], command)
       case command
@@ -1121,3 +1085,38 @@ MenuHandlers.add(:bag_screen_interact, :cancel, {
   "name"      => _INTL("Cancel"),
   "order"     => 9999
 })
+
+#===============================================================================
+# Methods for choosing an item from the Bag.
+#===============================================================================
+def pbChooseItem(game_variable = 0, *args)
+  ret = nil
+  pbFadeOutIn do
+    bag_screen = UI::Bag.new($bag, mode: :choose_item)
+    ret = bag_screen.choose_item
+  end
+  $game_variables[game_variable] = ret || :NONE if game_variable > 0
+  return ret
+end
+
+def pbChooseApricorn(game_variable = 0)
+  ret = nil
+  pbFadeOutIn do
+    bag_screen = UI::Bag.new($bag, mode: :choose_item)
+    bag_screen.set_filter_proc(proc { |item| GameData::Item.get(item).is_apricorn? })
+    ret = bag_screen.choose_item
+  end
+  $game_variables[game_variable] = ret || :NONE if game_variable > 0
+  return ret
+end
+
+def pbChooseFossil(game_variable = 0)
+  ret = nil
+  pbFadeOutIn do
+    bag_screen = UI::Bag.new($bag, mode: :choose_item)
+    bag_screen.set_filter_proc(proc { |item| GameData::Item.get(item).is_fossil? })
+    ret = bag_screen.choose_item
+  end
+  $game_variables[game_variable] = ret || :NONE if game_variable > 0
+  return ret
+end
