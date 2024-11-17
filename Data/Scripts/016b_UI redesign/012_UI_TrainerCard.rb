@@ -3,7 +3,6 @@
 #===============================================================================
 class UI::TrainerCardVisuals < UI::BaseVisuals
   GRAPHICS_FOLDER = "Trainer Card/"   # Subfolder in Graphics/UI
-
   BADGE_SIZE      = [32, 32]   # [width, height] of a Gym Badge
   BADGE_SPACING   = 16         # Size of gap between adjacent Gym Badges
   FIRST_BADGE_X   = 72         # Left edge of the first Gym Badge

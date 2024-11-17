@@ -327,7 +327,6 @@ end
 #
 #===============================================================================
 class UI::PartyVisuals < UI::BaseVisuals
-  attr_reader :sprites
   attr_reader :index
   attr_reader :sub_mode
 
@@ -752,7 +751,7 @@ class UI::Party < UI::BaseScreen
   #   :battle_use_item         For battle.
   #   :use_item                Like :choose_pokemon but with a different help text
   #   :teach_pokemon           Like :choose_pokemon but with a different help text
-  #  :choose_entry_order       Battle Frontier thing
+  #   :choose_entry_order      Battle Frontier thing
   def initialize(party, mode: :normal)
     @party = (party.is_a?(Array)) ? party : [party]
     @mode  = mode
@@ -881,14 +880,7 @@ class UI::Party < UI::BaseScreen
     @visuals.refresh_party
   end
 
-  # TODO: Get rid of this method once storage screen and PokemonDebugPartyScreen
-  #       have been rewritten.
-  def pbRefreshSingle(_party_index)
-    refresh
-  end
-
-  # TODO: Get rid of this method once storage screen and PokemonDebugPartyScreen
-  #       have been rewritten.
+  # TODO: Get rid of this method once ItemHandlers have been rewritten.
   def pbHardRefresh
     refresh_party
     refresh

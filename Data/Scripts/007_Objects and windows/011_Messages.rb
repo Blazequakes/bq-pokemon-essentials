@@ -254,9 +254,10 @@ end
 
 def pbGetMapNameFromId(id)
   name = GameData::MapMetadata.try_get(id)&.name
-  if nil_or_empty?(name)
-    name = pbGetBasicMapNameFromId(id)
-    name.gsub!(/\\PN/, $player.name) if $player
+  name = pbGetBasicMapNameFromId(id) if nil_or_empty?(name)
+  name = name.gsub(/\\PN/, $player.name) if $player
+  if $game_variables
+    name = name.gsub(/\\v\[(\d+)\]/) { |num| $game_variables[$~[1].to_i].to_s }
   end
   return name
 end
@@ -335,9 +336,9 @@ def pbReplaceMessageText(text, msg_window)
   text.gsub!(/\\r/i, female_text_tag)
   # Other text colors
   text.gsub!(/\\\[([0-9a-f]{8,8})\]/i) { "<c2=" + $1 + ">" }
-  isDarkSkin = isDarkWindowskin(msg_window.windowskin)
+  isDarkSkin = msg_window && isDarkWindowskin(msg_window.windowskin)
   text.gsub!(/\\c\[([0-9]+)\]/i) do
-    main_color, shadow_color = get_text_colors_for_windowskin(msg_window.windowskin, $1.to_i, isDarkSkin)
+    main_color, shadow_color = get_text_colors_for_windowskin(msg_window&.windowskin, $1.to_i, isDarkSkin)
     next shadowc3tag(main_color, shadow_color)
   end
 end
@@ -731,7 +732,7 @@ end
 
 def pbShowCommands(msgwindow, commands = nil, cmdIfCancel = 0, defaultCmd = 0)
   return 0 if !commands
-  cmdwindow = Window_CommandPokemonEx.new(commands)
+  cmdwindow = Window_AdvancedCommandPokemon.new(commands)
   cmdwindow.z = 99999
   cmdwindow.visible = true
   cmdwindow.resizeToFit(cmdwindow.commands)
@@ -771,7 +772,7 @@ def pbShowCommandsWithHelp(msgwindow, commands, help, cmdIfCancel = 0, defaultCm
   oldlbl = msgwin.letterbyletter
   msgwin.letterbyletter = false
   if commands
-    cmdwindow = Window_CommandPokemonEx.new(commands)
+    cmdwindow = Window_AdvancedCommandPokemon.new(commands)
     cmdwindow.z = 99999
     cmdwindow.visible = true
     cmdwindow.resizeToFit(cmdwindow.commands)

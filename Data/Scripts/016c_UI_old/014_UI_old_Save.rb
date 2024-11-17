@@ -1,3 +1,4 @@
+=begin
 #===============================================================================
 #
 #===============================================================================
@@ -107,9 +108,8 @@ end
 #
 #===============================================================================
 def pbSaveScreen
-  scene = PokemonSave_Scene.new
-  screen = PokemonSaveScreen.new(scene)
-  ret = screen.pbSaveScreen
+  ret = false
+  pbFadeOutIn { ret = UI::Save.new.main }
   return ret
 end
 
@@ -137,3 +137,4 @@ def pbEmergencySave
   end
   $scene = oldscene
 end
+=end

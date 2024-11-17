@@ -159,40 +159,38 @@ class Battle::Move
       if battler.isSpecies?(:MORPEKO) || battler.effects[PBEffects::TransformSpecies] == :MORPEKO
         return pbBaseType(battler)
       end
-=begin
     when "TypeDependsOnUserPlate", "TypeDependsOnUserMemory",
          "TypeDependsOnUserDrive", "TypeAndPowerDependOnUserBerry",
          "TypeIsUserFirstType", "TypeAndPowerDependOnWeather",
          "TypeAndPowerDependOnTerrain"
-      return pbBaseType(battler)
-=end
+      return pbBaseType(battler) if Settings::SHOW_MODIFIED_MOVE_PROPERTIES
     end
     return @realMove.display_type(battler.pokemon)
   end
 
-  def display_damage(battler)
-=begin
-    case @function_code
-    when "TypeAndPowerDependOnUserBerry"
-      return pbNaturalGiftBaseDamage(battler.item_id)
-    when "TypeAndPowerDependOnWeather", "TypeAndPowerDependOnTerrain",
-         "PowerHigherWithUserHP", "PowerLowerWithUserHP",
-         "PowerHigherWithUserHappiness", "PowerLowerWithUserHappiness",
-         "PowerHigherWithUserPositiveStatStages", "PowerDependsOnUserStockpile"
-      return pbBaseType(@power, battler, nil)
+  def display_power(battler)
+    if Settings::SHOW_MODIFIED_MOVE_PROPERTIES
+      case @function_code
+      when "TypeAndPowerDependOnUserBerry"
+        return pbNaturalGiftBaseDamage(battler.item_id)
+      when "TypeAndPowerDependOnWeather", "TypeAndPowerDependOnTerrain",
+           "PowerHigherWithUserHP", "PowerLowerWithUserHP",
+           "PowerHigherWithUserHappiness", "PowerLowerWithUserHappiness",
+           "PowerHigherWithUserPositiveStatStages", "PowerDependsOnUserStockpile"
+        return pbBaseType(@power, battler, nil)
+      end
     end
-=end
-    return @realMove.display_damage(battler.pokemon)
+    return @realMove.display_power(battler.pokemon)
   end
 
   def display_category(battler)
-=begin
-    case @function_code
-    when "CategoryDependsOnHigherDamageIgnoreTargetAbility"
-      pbOnStartUse(user, nil)
-      return @calcCategory
+    if Settings::SHOW_MODIFIED_MOVE_PROPERTIES
+      case @function_code
+      when "CategoryDependsOnHigherDamageIgnoreTargetAbility"
+        pbOnStartUse(user, nil)
+        return @calcCategory
+      end
     end
-=end
     return @realMove.display_category(battler.pokemon)
   end
 

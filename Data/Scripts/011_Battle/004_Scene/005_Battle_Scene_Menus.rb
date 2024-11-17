@@ -199,8 +199,6 @@ class Battle::Scene::FightMenu < Battle::Scene::MenuBase
   attr_reader :battler
   attr_reader :shiftMode
 
-  GET_MOVE_TEXT_COLOR_FROM_MOVE_BUTTON = true
-
   # If true, displays graphics from Graphics/UI/Battle/overlay_fight.png
   #     and Graphics/UI/Battle/cursor_fight.png.
   # If false, just displays text and the command window over the graphic
@@ -350,7 +348,7 @@ class Battle::Scene::FightMenu < Battle::Scene::MenuBase
       x = button.x - self.x + (button.src_rect.width / 2)
       y = button.y - self.y + 14
       moveNameBase = TEXT_BASE_COLOR
-      if GET_MOVE_TEXT_COLOR_FROM_MOVE_BUTTON && moves[i].display_type(@battler)
+      if Settings::BATTLE_MOVE_NAME_COLOR_FROM_GRAPHIC && moves[i].display_type(@battler)
         # NOTE: This takes a color from a particular pixel in the button
         #       graphic and makes the move name's base color that same color.
         #       The pixel is at coordinates 10,34 in the button box. If you

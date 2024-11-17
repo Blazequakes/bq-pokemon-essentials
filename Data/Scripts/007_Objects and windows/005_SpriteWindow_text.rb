@@ -1326,15 +1326,28 @@ class Window_AdvancedCommandPokemon < Window_DrawableCommand
     windowheight += self.borderY
     if !width || width < 0
       width = 0
-      tmpbitmap = Bitmap.new(1, 1)
-      pbSetSystemFont(tmpbitmap)
-      commands.each do |i|
-        txt = toUnformattedText(i).gsub(/\n/, "")
-        width = [width, tmpbitmap.text_size(txt).width].max
+      tmp_bitmap = Bitmap.new(1, 1)
+      pbSetSystemFont(tmp_bitmap)
+      commands.each do |cmd|
+        txt = toUnformattedText(cmd).gsub(/\n/, "")
+        txt_width = tmp_bitmap.text_size(txt).width
+        check_text = cmd
+        while check_text[FORMATREGEXP]
+          if $~[2].downcase == "icon" && $~[3]
+            check_text = $~.post_match
+            filename = $~[4].sub(/\s+$/, "")
+            temp_graphic = Bitmap.new("Graphics/Icons/#{filename}")
+            txt_width += temp_graphic.width
+            temp_graphic.dispose
+          else
+            check_text = $~.post_match
+          end
+        end
+        width = [width, txt_width].max
       end
       # one 16 to allow cursor
       width += 16 + 16 + SpriteWindow_Base::TEXT_PADDING
-      tmpbitmap.dispose
+      tmp_bitmap.dispose
     end
     # Store suggested width and height of window
     dims[0] = [self.borderX + 1,
@@ -1347,7 +1360,7 @@ class Window_AdvancedCommandPokemon < Window_DrawableCommand
     dims = []
     getAutoDims(commands, dims, width)
     self.width = dims[0]
-    self.height = dims[1] - 6
+    self.height = dims[1]
   end
 
   def itemCount
@@ -1363,7 +1376,7 @@ class Window_AdvancedCommandPokemon < Window_DrawableCommand
                        rect.width, rect.height, @commands[index], self.baseColor, self.shadowColor)
     else
       chars = getFormattedText(self.contents, rect.x, rect.y + (self.contents.text_offset_y || 0) + 2,   # TEXT OFFSET
-                               rect.width, rect.height, @commands[index], rect.height, true, true)
+                               rect.width, rect.height, @commands[index], rect.height, true, true, false, self)
       drawFormattedChars(self.contents, chars)
     end
   end

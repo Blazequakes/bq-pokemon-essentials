@@ -65,7 +65,7 @@ module UI
     end
 
     def gendered_filename(base_filename)
-      return filename_with_appendix(base_filename, "_f") if $player.female?
+      return filename_with_appendix(base_filename, "_f") if $player&.female?
       return base_filename
     end
 
@@ -306,6 +306,8 @@ module UI
   # The visuals class.
   #=============================================================================
   class BaseVisuals
+    attr_reader :sprites
+
     BACKGROUND_FILENAME = "bg"
 
     include SpriteContainerMixin
@@ -361,16 +363,36 @@ module UI
 
     #---------------------------------------------------------------------------
 
+    def set_viewport_color(new_color)
+      @viewport.color = new_color
+    end
+
     def fade_in
-      # TODO: pbFadeInAndShow changes the colour of all sprites. Make it instead
-      #       change the opacity of @viewport like def pbFadeOutIn.
-      pbFadeInAndShow(@sprites)
+      duration = 0.4   # In seconds
+      col = Color.new(0, 0, 0, 0)
+      timer_start = System.uptime
+      loop do
+        col.set(0, 0, 0, lerp(255, 0, duration, timer_start, System.uptime))
+        set_viewport_color(col)
+        Graphics.update
+        Input.update
+        update_visuals
+        break if col.alpha == 0
+      end
     end
 
     def fade_out
-      # TODO: pbFadeOutAndHide changes the colour of all sprites. Make it
-      #       instead change the opacity of @viewport like def pbFadeOutIn.
-      pbFadeOutAndHide(@sprites)
+      duration = 0.4   # In seconds
+      col = Color.new(0, 0, 0, 0)
+      timer_start = System.uptime
+      loop do
+        col.set(0, 0, 0, lerp(0, 255, duration, timer_start, System.uptime))
+        set_viewport_color(col)
+        Graphics.update
+        Input.update
+        update_visuals
+        break if col.alpha == 255
+      end
     end
 
     def dispose
@@ -586,7 +608,7 @@ module UI
     def choose_number_as_money_multiplier(help_text, money_per_unit, maximum, init_value = 1)
       @sprites[:speech_box].visible = true
       @sprites[:speech_box].text = help_text
-      position_speech_box(text)
+      position_speech_box(help_text)
       # Show the help text
       loop do
         Graphics.update
@@ -800,6 +822,7 @@ module UI
     end
 
     def main
+      return if @disposed
       start_screen
       loop do
         on_start_main_loop

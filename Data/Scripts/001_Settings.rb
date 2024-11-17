@@ -88,13 +88,13 @@ module Settings
   SAFARI_STEPS               = 600
   # The number of seconds a Bug-Catching Contest lasts for (0=infinite).
   BUG_CONTEST_TIME           = 20 * 60   # 20 minutes
-  # Pairs of map IDs, where the location signpost isn't shown when moving from
-  # one of the maps in a pair to the other (and vice versa). Useful for single
-  # long routes/towns that are spread over multiple maps.
+  # Pairs of map IDs, where the location sign isn't shown when moving from one
+  # of the maps in a pair to the other (and vice versa). Useful for single long
+  # routes/towns that are spread over multiple maps.
   #   e.g. [4,5,16,17,42,43] will be map pairs 4,5 and 16,17 and 42,43.
   # Moving between two maps that have the exact same name won't show the
-  # location signpost anyway, so you don't need to list those maps here.
-  NO_SIGNPOSTS               = []
+  # location sign anyway, so you don't need to list those maps here.
+  NO_LOCATION_SIGNS          = []
   # Whether poisoned Pokémon will lose HP while walking around in the field.
   POISON_IN_FIELD            = (MECHANICS_GENERATION <= 4)
   # Whether poisoned Pokémon will faint while walking around in the field

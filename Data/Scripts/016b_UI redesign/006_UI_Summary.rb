@@ -27,7 +27,6 @@ class UI::PokemonSummaryMoveCursor < ChangelingSprite
     self.visible = (@index >= 0)
   end
 
-
   def refresh_position
     return if @index < 0
     self.x = UI::PokemonSummaryVisuals::MOVE_LIST_X_DETAILED - CURSOR_THICKNESS
@@ -780,7 +779,7 @@ class UI::PokemonSummaryVisuals < UI::BaseVisuals
     selected_move = ((@move_index || 0) == Pokemon::MAX_MOVES) ? @new_move : @pokemon.moves[@move_index || 0]
     # Power
     draw_text(_INTL("POWER"), 20, 128)
-    power_text = selected_move.display_damage(@pokemon)
+    power_text = selected_move.display_power(@pokemon)
     power_text = "---" if power_text == 0   # Status move
     power_text = "???" if power_text == 1   # Variable power move
     draw_text(power_text, 222, 128, align: :right, theme: :black)

@@ -252,7 +252,7 @@ MenuHandlers.add(:pause_menu, :pokegear, {
 MenuHandlers.add(:pause_menu, :town_map, {
   "name"      => _INTL("Town Map"),
   "order"     => 40,
-  "condition" => proc { next !$player.has_pokegear && $bag.has?(:TOWNMAP) },
+  "condition" => proc { next Settings::SHOW_TOWN_MAP_IN_PAUSE_MENU && !$player.has_pokegear && $bag.has?(:TOWNMAP) },
   "effect"    => proc { |menu|
     pbPlayDecisionSE
     pbFadeOutIn do
@@ -286,16 +286,17 @@ MenuHandlers.add(:pause_menu, :save, {
     next $game_system && !$game_system.save_disabled && !pbInSafari? && !pbInBugContest?
   },
   "effect"    => proc { |menu|
-    menu.hide_menu
-    scene = PokemonSave_Scene.new
-    screen = PokemonSaveScreen.new(scene)
-    if screen.pbSaveScreen
-      menu.silent_end_screen
-      next true
+    pbPlayDecisionSE
+    ret = false
+    pbFadeOutIn do
+      ret = UI::Save.new.main
+      if ret
+        menu.silent_end_screen
+      else
+        menu.refresh
+      end
     end
-    menu.refresh
-    menu.show_menu
-    next false
+    next ret
   }
 })
 
@@ -335,10 +336,6 @@ MenuHandlers.add(:pause_menu, :quit_game, {
   "effect"    => proc { |menu|
     menu.hide_menu
     if pbConfirmMessage(_INTL("Are you sure you want to quit the game?"))
-      scene = PokemonSave_Scene.new
-      screen = PokemonSaveScreen.new(scene)
-      screen.pbSaveScreen
-      menu.silent_end_screen
       $scene = nil
       next true
     end

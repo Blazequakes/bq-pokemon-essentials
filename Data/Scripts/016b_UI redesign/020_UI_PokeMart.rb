@@ -125,7 +125,6 @@ end
 #
 #===============================================================================
 class UI::MartVisuals < UI::BaseVisuals
-  attr_reader :sprites
   attr_reader :pocket
 
   GRAPHICS_FOLDER   = "Mart/"   # Subfolder in Graphics/UI
@@ -466,6 +465,7 @@ class UI::BagSellVisuals < UI::BagVisuals
   end
 
   def refresh_on_index_changed(old_index)
+    super
     refresh_unit_price_window
   end
 end
