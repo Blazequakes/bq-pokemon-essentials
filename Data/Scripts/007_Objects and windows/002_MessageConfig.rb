@@ -243,15 +243,17 @@ end
 def pbRepositionMessageWindow(msgwindow, linecount = 2)
   msgwindow.height = (32 * linecount) + msgwindow.borderY
   msgwindow.y = (Graphics.height) - (msgwindow.height)
-  case $game_system&.message_position || 2
-  when 0   # top
-    msgwindow.y = 0
-  when 1   # middle
-    msgwindow.y = (Graphics.height - msgwindow.height) / 2
-  when 2   # bottom
-    msgwindow.y = Graphics.height - msgwindow.height
+  if $game_system
+    case $game_system.message_position
+    when 0  # up
+      msgwindow.y = 0
+    when 1  # middle
+      msgwindow.y = (Graphics.height / 2) - (msgwindow.height / 2)
+    when 2
+      msgwindow.y = (Graphics.height) - (msgwindow.height)
+    end
+    msgwindow.opacity = 0 if $game_system.message_frame != 0
   end
-  msgwindow.opacity = 0 if ($game_system&.message_frame || 0) != 0
 end
 
 # internal function
@@ -367,14 +369,14 @@ def get_text_colors_for_windowskin(windowskin, color, isDarkSkin)
   end
   # Special colour as listed above
   if isDarkSkin && color != 12   # Dark background, light text
-    if textcolors[(2 * (color - 1))].is_a?(Color)
+    if textcolors[2 * (color - 1)].is_a?(Color)
       return textcolors[(2 * (color - 1)) + 1], textcolors[2 * (color - 1)]
     end
     return Color.new(*textcolors[(2 * (color - 1)) + 1]), Color.new(*textcolors[2 * (color - 1)])
   end
   # Light background, dark text
-  if textcolors[(2 * (color - 1))].is_a?(Color)
-    return textcolors[(2 * (color - 1))], textcolors[2 * (color - 1) + 1]
+  if textcolors[2 * (color - 1)].is_a?(Color)
+    return textcolors[2 * (color - 1)], textcolors[2 * (color - 1) + 1]
   end
   return Color.new(*textcolors[2 * (color - 1)]), Color.new(*textcolors[(2 * (color - 1)) + 1])
 end
@@ -495,7 +497,7 @@ def using(window)
 end
 
 def pbUpdateSpriteHash(windows)
-  windows&.each do |i|
+  windows.each do |i|
     window = i[1]
     if window
       if window.is_a?(Sprite) || window.is_a?(Window)
@@ -595,7 +597,7 @@ def pbFadeOutIn(z = 99999, nofadeout = false)
   end
 end
 
-def pbFadeOutInWithUpdate(sprites, z = 99999, nofadeout = false)
+def pbFadeOutInWithUpdate(z, sprites, nofadeout = false)
   duration = 0.4   # In seconds
   col = Color.new(0, 0, 0, 0)
   viewport = Viewport.new(0, 0, Graphics.width, Graphics.height)

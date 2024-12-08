@@ -21,7 +21,7 @@ end
 def pbResetAllRoamers
   return if !$PokemonGlobal.roamPokemon
   $PokemonGlobal.roamPokemon.length.times do |i|
-    next if $PokemonGlobal.roamPokemon[i] != true || !$PokemonGlobal.roamPokemonCaught[i]
+    next if $PokemonGlobal.roamPokemon[i] != true || $PokemonGlobal.roamPokemonCaught[i]
     $PokemonGlobal.roamPokemon[i] = nil
   end
 end

@@ -244,7 +244,7 @@ GameData::Evolution.register({
   :id            => :LevelDarkInParty,
   :parameter     => Integer,
   :level_up_proc => proc { |pkmn, parameter|
-    next pkmn.level >= parameter && $player.has_pokemon_of_type?(:DARK)
+    next pkmn.level >= parameter && $player.has_pokemon_of_type?(:DARK, [pkmn])
   }
 })
 

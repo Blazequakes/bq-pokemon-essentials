@@ -527,7 +527,7 @@ def pbTrainerBattleEditor
                 :trainer_type    => data[0],
                 :real_name       => data[1],
                 :version         => data[2],
-                :lose_text       => data[3],
+                :real_lose_text  => data[3],
                 :pokemon         => party,
                 :items           => items,
                 :pbs_file_suffix => tr_data.pbs_file_suffix
